@@ -37,6 +37,8 @@ import {
   FinancialSensitiveAction
 } from '../security/securityEngine';
 import { isValidPhoneNumber, sanitizePhoneInput, validatePhoneWithDetails } from '../../lib/phoneValidation';
+import { supabaseService } from './supabaseService';
+import { isSupabaseConfigured, checkSupabaseConnection } from '../../lib/supabaseClient';
 
 const STORAGE_KEY = 'cms_app_database_state_v1';
 
@@ -2716,6 +2718,71 @@ class StoreManager {
 
   private notify() {
     this.listeners.forEach(fn => fn());
+  }
+
+  // --- SUPABASE POSTGRESQL INTEGRATION ---
+
+  public isSupabaseEnabled(): boolean {
+    return isSupabaseConfigured() && supabaseService.isReady();
+  }
+
+  public async checkSupabaseHealth() {
+    return await checkSupabaseConnection();
+  }
+
+  public async syncWithSupabase(tenantId?: string): Promise<{ success: boolean; message: string }> {
+    if (!this.isSupabaseEnabled()) {
+      return { success: false, message: 'Supabase n\'est pas activé ou configuré.' };
+    }
+    try {
+      const targetTenant = tenantId || this.state.currentTenantId;
+      const [remoteTenants, remotePersons, remoteServices, remoteProducts, remoteOrders, remoteAccounts] = await Promise.all([
+        supabaseService.getTenants(),
+        supabaseService.getPersons(targetTenant),
+        supabaseService.getServices(targetTenant),
+        supabaseService.getProducts(targetTenant),
+        supabaseService.getOrders(targetTenant),
+        supabaseService.getFinancialAccounts(targetTenant)
+      ]);
+
+      this.updateState(draft => {
+        if (remoteTenants.length > 0) draft.tenants = remoteTenants;
+        if (remotePersons.length > 0) {
+          draft.persons = [
+            ...draft.persons.filter(p => p.tenantId !== targetTenant),
+            ...remotePersons
+          ];
+        }
+        if (remoteServices.length > 0) {
+          draft.services = [
+            ...draft.services.filter(s => s.tenantId !== targetTenant),
+            ...remoteServices
+          ];
+        }
+        if (remoteProducts.length > 0) {
+          draft.products = [
+            ...draft.products.filter(p => p.tenantId !== targetTenant),
+            ...remoteProducts
+          ];
+        }
+        if (remoteOrders.length > 0) {
+          draft.orders = [
+            ...draft.orders.filter(o => o.tenantId !== targetTenant),
+            ...remoteOrders
+          ];
+        }
+        if (remoteAccounts.length > 0) {
+          draft.financialAccounts = [
+            ...draft.financialAccounts.filter(a => a.tenantId !== targetTenant),
+            ...remoteAccounts
+          ];
+        }
+      });
+
+      return { success: true, message: 'Synchronisation Supabase PostgreSQL effectuée avec succès.' };
+    } catch (err: any) {
+      return { success: false, message: `Erreur de synchronisation: ${err.message}` };
+    }
   }
 
   // --- SAAS MULTI-AGENCY ACTIONS ---

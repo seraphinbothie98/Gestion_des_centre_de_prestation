@@ -19,6 +19,15 @@ async function runTests() {
   const tenantId = 't-001';
 
   // 1. Audit initial des comptes financiers
+  dbStore.updateState(draft => {
+    const cash = draft.financialAccounts.find(a => a.tenantId === tenantId && a.isMainCash);
+    if (cash) cash.currentBalance = 1000000;
+    const bank = draft.financialAccounts.find(a => a.tenantId === tenantId && a.type === 'BANK');
+    if (bank) bank.currentBalance = 5000000;
+    const om = draft.financialAccounts.find(a => a.tenantId === tenantId && a.code === 'OM-01');
+    if (om) om.currentBalance = 500000;
+  });
+
   const initialAccounts = dbStore.getFinancialAccounts(tenantId, false);
   const initialCashAccount = initialAccounts.find(a => a.isMainCash);
   const initialBank = initialAccounts.find(a => a.type === 'BANK');
