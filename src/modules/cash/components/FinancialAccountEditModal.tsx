@@ -285,7 +285,7 @@ export const FinancialAccountEditModal: React.FC<Props> = ({
                 type="checkbox"
                 checked={isPettyCash}
                 onChange={(e) => setIsPettyCash(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
               />
               <div>
                 <span className="text-xs font-bold text-slate-900 dark:text-white block">Petite Caisse</span>

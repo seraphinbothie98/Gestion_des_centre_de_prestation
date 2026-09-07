@@ -292,7 +292,7 @@ export const ReportsView: React.FC = () => {
                     <TableCell>{t.durationHours} Heures</TableCell>
                     <TableCell className="font-bold text-emerald-600">{formatCurrency(t.price)}</TableCell>
                     <TableCell>{state.trainingSessions.filter(s => s.trainingId === t.id).length} session(s)</TableCell>
-                    <TableCell className="font-bold text-purple-600">
+                    <TableCell className="font-bold text-amber-600">
                       {state.certificates.filter(c => c.trainingTitle === t.title).length} certif(s)
                     </TableCell>
                   </TableRow>

@@ -130,7 +130,7 @@ export const RegisterAgencyModal: React.FC<RegisterAgencyModalProps> = ({ isOpen
     >
       <div className="space-y-6">
         {/* Trial Badge Header */}
-        <div className="p-3.5 bg-gradient-to-r from-brand-500/10 via-indigo-500/10 to-cyan-500/10 dark:from-brand-950/40 dark:via-indigo-950/40 dark:to-cyan-950/40 border border-brand-200 dark:border-brand-800 rounded-2xl flex items-center justify-between gap-3">
+        <div className="p-3.5 bg-gradient-to-r from-brand-500/10 via-amber-500/10 to-emerald-500/10 dark:from-brand-950/40 dark:via-amber-950/40 dark:to-emerald-950/40 border border-brand-200 dark:border-brand-800 rounded-2xl flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-brand-600 text-white shadow-sm">
               <Sparkles className="w-4 h-4" />

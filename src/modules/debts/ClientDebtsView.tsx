@@ -226,12 +226,12 @@ export const ClientDebtsView: React.FC = () => {
         </Card>
 
         {/* 3. Commandes livrées non soldées */}
-        <Card className="p-4 border-l-4 border-l-purple-500">
+        <Card className="p-4 border-l-4 border-l-amber-500">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-xs font-semibold text-purple-600 uppercase">Livrées Non Soldées</span>
-            <Truck className="w-4 h-4 text-purple-500" />
+            <span className="text-[10px] sm:text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase">Livrées Non Soldées</span>
+            <Truck className="w-4 h-4 text-amber-500" />
           </div>
-          <h3 className="text-xl sm:text-2xl font-extrabold text-purple-600 mt-1">
+          <h3 className="text-xl sm:text-2xl font-extrabold text-amber-600 mt-1">
             {stats.deliveredUnpaidCount} commandes
           </h3>
           <p className="text-[10px] text-slate-400 mt-0.5">Marchandises déjà remises aux clients</p>
@@ -435,11 +435,11 @@ export const ClientDebtsView: React.FC = () => {
 
                   <TableCell>
                     {order.status === 'DELIVERED' ? (
-                      <Badge variant="purple" size="sm">🚚 Livrée non soldée</Badge>
+                      <Badge variant="warning" size="sm">🚚 Livrée non soldée</Badge>
                     ) : order.status === 'READY' ? (
                       <Badge variant="success" size="sm">✨ Prête pour retrait</Badge>
                     ) : order.status === 'IN_PRODUCTION' ? (
-                      <Badge variant="info" size="sm">⚙️ En production</Badge>
+                      <Badge variant="outline" size="sm">⚙️ En production</Badge>
                     ) : (
                       <Badge variant="warning" size="sm">⏳ En attente</Badge>
                     )}
@@ -509,7 +509,7 @@ export const ClientDebtsView: React.FC = () => {
                   </span>
                 </div>
                 {order.status === 'DELIVERED' ? (
-                  <Badge variant="purple" size="sm">🚚 Livrée</Badge>
+                  <Badge variant="warning" size="sm">🚚 Livrée</Badge>
                 ) : (
                   <Badge variant="warning" size="sm">{order.status}</Badge>
                 )}

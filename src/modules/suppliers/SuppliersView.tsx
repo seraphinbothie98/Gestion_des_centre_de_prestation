@@ -1024,8 +1024,8 @@ export const SuppliersView: React.FC = () => {
                             </Badge>
                           )}
                           {po.paymentStatus === 'CREDIT' && (
-                            <Badge variant="outline" size="sm" className="text-[10px] font-bold border-purple-400 text-purple-600 dark:text-purple-400">
-                              🟣 À Crédit ({formatCurrency(due)})
+                            <Badge variant="outline" size="sm" className="text-[10px] font-bold border-amber-400 text-amber-600 dark:text-amber-400">
+                              🟡 À Crédit ({formatCurrency(due)})
                             </Badge>
                           )}
                         </div>
@@ -1152,12 +1152,12 @@ export const SuppliersView: React.FC = () => {
               </span>
             </Card>
 
-            <Card className="p-4 border-l-4 border-l-purple-500 bg-gradient-to-br from-white to-purple-50/20 dark:from-slate-900 dark:to-purple-950/20">
+            <Card className="p-4 border-l-4 border-l-amber-500 bg-gradient-to-br from-white to-amber-50/20 dark:from-slate-900 dark:to-amber-950/20">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Comptes Trésorerie Actifs</span>
-                <Landmark className="w-5 h-5 text-purple-500" />
+                <Landmark className="w-5 h-5 text-amber-500" />
               </div>
-              <div className="text-xl font-black text-purple-600 dark:text-purple-400 mt-2">
+              <div className="text-xl font-black text-amber-600 dark:text-amber-400 mt-2">
                 {agencyFinancialAccounts.length} compte(s)
               </div>
               <span className="text-[11px] text-slate-400 block mt-1">

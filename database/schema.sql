@@ -624,7 +624,7 @@ CREATE TABLE IF NOT EXISTS service_product_consumptions (
     product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     quantity_consumed_per_unit NUMERIC(10, 4) NOT NULL DEFAULT 1.0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (service_id, product_id)
+    CONSTRAINT uq_service_product UNIQUE (service_id, product_id)
 );
 
 CREATE TYPE stock_movement_type_enum AS ENUM ('IN', 'OUT', 'ADJUSTMENT', 'CONSUMPTION', 'RETURN');

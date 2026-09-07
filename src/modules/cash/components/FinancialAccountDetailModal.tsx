@@ -149,7 +149,7 @@ export const FinancialAccountDetailModal: React.FC<Props> = ({
             <div className="flex items-center gap-3">
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-xl shadow-md ${
                 isBank
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-amber-600 text-white'
                   : isMomo
                   ? 'bg-emerald-600 text-white'
                   : 'bg-amber-500 text-white'
@@ -173,7 +173,7 @@ export const FinancialAccountDetailModal: React.FC<Props> = ({
                     </span>
                   )}
                   {account.isPettyCash && (
-                    <span className="bg-purple-500/30 text-purple-300 border border-purple-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                    <span className="bg-brand-500/20 text-brand-300 border border-brand-500/30 text-[9px] font-bold px-1.5 py-0.5 rounded">
                       Petite Caisse
                     </span>
                   )}
@@ -225,7 +225,7 @@ export const FinancialAccountDetailModal: React.FC<Props> = ({
               icon={ArrowRightLeft}
               onClick={() => onTransfer(account.id)}
               disabled={!account.isActive || account.currentBalance <= 0}
-              className="text-xs font-bold text-blue-300 bg-blue-950/40 hover:bg-blue-900/60 border-blue-800/80"
+              className="text-xs font-bold text-brand-300 bg-brand-950/40 hover:bg-brand-900/60 border-brand-800/80"
             >
               Transférer
             </Button>

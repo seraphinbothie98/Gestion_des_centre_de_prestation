@@ -231,9 +231,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onOpenQuickOrder }) => {
       case 'DRAFT': return <Badge variant="secondary">Brouillon</Badge>;
       case 'PENDING': return <Badge variant="warning">En attente</Badge>;
       case 'CONFIRMED': return <Badge variant="primary">Confirmée</Badge>;
-      case 'IN_PRODUCTION': return <Badge variant="info">En production</Badge>;
-      case 'PARTIALLY_DONE': return <Badge variant="purple">Partiellement Terminée</Badge>;
-      case 'COMPLETED': return <Badge variant="purple">Terminée</Badge>;
+      case 'IN_PRODUCTION': return <Badge variant="warning">En production</Badge>;
+      case 'PARTIALLY_DONE': return <Badge variant="warning">Partiellement Terminée</Badge>;
+      case 'COMPLETED': return <Badge variant="success">Terminée</Badge>;
       case 'READY': return <Badge variant="success">Prête pour retrait</Badge>;
       case 'PARTIALLY_DELIVERED': return <Badge variant="warning">Partiellement Livrée</Badge>;
       case 'DELIVERED': return <Badge variant="success">Livrée</Badge>;
@@ -486,7 +486,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onOpenQuickOrder }) => {
                   </p>
                 )}
                 {selectedOrder.deliveryNotes && (
-                  <p className="text-xs text-purple-600 dark:text-purple-400 mt-1 bg-purple-50 dark:bg-purple-950/60 p-2 rounded-lg">
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 bg-amber-50 dark:bg-amber-950/60 p-2 rounded-lg">
                     Livraison : {selectedOrder.deliveryNotes}
                   </p>
                 )}
@@ -541,7 +541,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onOpenQuickOrder }) => {
                               </strong>
                             </div>
                             {item.discountReason && (
-                              <span className="block text-[10px] text-purple-600 italic mt-0.5">
+                              <span className="block text-[10px] text-amber-700 dark:text-amber-300 italic mt-0.5">
                                 « Motif: {item.discountReason} »
                               </span>
                             )}
@@ -580,9 +580,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onOpenQuickOrder }) => {
                                   : item.productionStatus === 'DELIVERED'
                                   ? 'success'
                                   : item.productionStatus === 'READY' || item.productionStatus === 'DONE'
-                                  ? 'purple'
+                                  ? 'success'
                                   : item.productionStatus === 'IN_PRODUCTION'
-                                  ? 'info'
+                                  ? 'warning'
                                   : 'warning'
                               }
                               size="sm"

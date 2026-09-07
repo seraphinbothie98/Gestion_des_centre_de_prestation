@@ -647,7 +647,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleOpenEditTraining(t)}
-                        className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/40 rounded-lg transition-colors"
                         title="Modifier la formation"
                       >
                         <Edit className="w-4 h-4" />
@@ -793,7 +793,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({
 
                           <button
                             onClick={() => handleOpenEditCategory(cat)}
-                            className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/40 rounded-lg transition-colors"
                             title="Modifier la catégorie"
                           >
                             <Edit className="w-4 h-4" />
@@ -855,7 +855,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({
                 {state.trainingSessions.map(s => (
                   <TableRow key={s.id}>
                     <TableCell>
-                      <span className="font-bold text-xs text-purple-600 block">{s.sessionCode}</span>
+                      <span className="font-bold text-xs text-amber-600 block">{s.sessionCode}</span>
                       <span className="font-semibold text-xs text-slate-900 dark:text-white">{s.trainingTitle}</span>
                     </TableCell>
                     <TableCell>
@@ -1010,7 +1010,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({
               {state.certificates.map(cert => (
                 <TableRow key={cert.id}>
                   <TableCell>
-                    <span className="font-mono text-xs font-extrabold text-purple-600 block">{cert.certificateCode}</span>
+                    <span className="font-mono text-xs font-extrabold text-amber-600 block">{cert.certificateCode}</span>
                   </TableCell>
                   <TableCell>
                     <span className="font-bold text-xs text-slate-900 dark:text-white block">{cert.learnerName}</span>
@@ -1401,7 +1401,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({
           maxWidth="md"
         >
           <form onSubmit={handleSaveEditCategory} className="space-y-4 pt-1">
-            <div className="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-2xl border border-purple-200 text-xs text-purple-900 dark:text-purple-200">
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200">
               <span>
                 💡 <strong>Propagation automatique :</strong> La modification du nom de cette catégorie sera automatiquement mise à jour sur toutes les formations qui lui sont rattachées.
               </span>
@@ -1614,7 +1614,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({
 
               <div className="py-2">
                 <span className="text-xs font-serif italic text-slate-600 block">Le présent certificat est décerné avec les félicitations à :</span>
-                <h4 className="text-2xl font-serif font-extrabold text-purple-950 mt-1 uppercase tracking-wide">
+                <h4 className="text-2xl font-serif font-extrabold text-slate-900 mt-1 uppercase tracking-wide">
                   {selectedCertificate.learnerName}
                 </h4>
               </div>
@@ -1623,9 +1623,9 @@ export const TrainingView: React.FC<TrainingViewProps> = ({
                 Pour avoir suivi avec succès et validé l'ensemble des modules d'évaluation de la formation professionnelle :
               </p>
 
-              <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 inline-block">
-                <span className="font-extrabold text-sm text-purple-900 block">{selectedCertificate.trainingTitle}</span>
-                <span className="text-xs text-purple-700">Mention : {selectedCertificate.mention || 'TRÈS BIEN'} • Score : {selectedCertificate.finalScore}/20</span>
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 inline-block">
+                <span className="font-extrabold text-sm text-amber-900 block">{selectedCertificate.trainingTitle}</span>
+                <span className="text-xs text-amber-700">Mention : {selectedCertificate.mention || 'TRÈS BIEN'} • Score : {selectedCertificate.finalScore}/20</span>
               </div>
 
               {/* Signatures Tri-block */}
@@ -1671,7 +1671,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({
                           />
                         )}
                       </div>
-                      <span className="font-mono font-bold text-[9px] text-purple-900">{selectedCertificate.certificateCode}</span>
+                      <span className="font-mono font-bold text-[9px] text-slate-900">{selectedCertificate.certificateCode}</span>
                       <span className="text-[8px] text-emerald-600 font-bold uppercase">Authenticité Certifiée</span>
                     </div>
 

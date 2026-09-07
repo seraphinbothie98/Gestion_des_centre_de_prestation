@@ -36,6 +36,7 @@ interface SidebarProps {
   onNavigate: (section: NavSection) => void;
   isOpenMobile: boolean;
   onCloseMobile: () => void;
+  onOpenMarketplace?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -43,6 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigate,
   isOpenMobile,
   onCloseMobile,
+  onOpenMarketplace,
 }) => {
   const { currentTenant, currentUser, allTenants, switchTenant, hasPermission, isSuperAdmin, canPerformMutations } = useAuth();
   const roleCode = currentUser?.roles[0]?.code || 'ADMIN_CENTRE';
@@ -295,7 +297,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 👑
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-cyan-400 flex items-center justify-center text-white shadow-glow">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-glow">
                 <Sparkles className="w-5 h-5" />
               </div>
             )}
@@ -390,6 +392,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ))}
         </div>
+
+        {/* Marketplace Public Link */}
+        {onOpenMarketplace && (
+          <div className="p-3 border-t border-slate-800 bg-slate-900/40">
+            <button
+              type="button"
+              onClick={() => {
+                onCloseMobile();
+                onOpenMarketplace();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500/15 via-yellow-500/15 to-amber-500/15 hover:from-amber-500/25 hover:to-yellow-500/25 text-amber-300 font-bold text-xs border border-amber-500/30 transition-all shadow-sm group"
+            >
+              <div className="flex items-center gap-2">
+                <Store className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                <span>Marketplace Boutiques</span>
+              </div>
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            </button>
+          </div>
+        )}
 
         {/* User Card at bottom */}
         <div className="p-3 border-t border-slate-800 bg-slate-950/60">

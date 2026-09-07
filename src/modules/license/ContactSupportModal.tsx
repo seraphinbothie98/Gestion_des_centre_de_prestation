@@ -90,7 +90,7 @@ export const ContactSupportModal: React.FC<ContactSupportModalProps> = ({
             href={`mailto:${supportContact.email}?subject=${encodeURIComponent(`Demande d'activation licence - ${tenantName || 'Centre'}`)}`}
             className="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-brand-500 hover:bg-brand-50/50 dark:hover:bg-brand-950/30 transition-all flex items-center gap-3 group"
           >
-            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
+            <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400">
               <Mail className="w-4 h-4" />
             </div>
             <div>

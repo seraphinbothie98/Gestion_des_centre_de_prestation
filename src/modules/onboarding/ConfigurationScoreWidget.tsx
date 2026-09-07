@@ -26,7 +26,7 @@ export const ConfigurationScoreWidget: React.FC<ConfigurationScoreWidgetProps> =
   const isComplete = score >= 100;
 
   return (
-    <Card className="p-5 relative overflow-hidden bg-gradient-to-br from-brand-900/10 via-indigo-900/5 to-white dark:to-slate-900 border-brand-200/80 dark:border-brand-900/60 shadow-sm">
+    <Card className="p-5 relative overflow-hidden bg-gradient-to-br from-brand-900/10 via-emerald-900/5 to-white dark:to-slate-900 border-brand-200/80 dark:border-brand-900/60 shadow-sm">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Left info & progress */}
         <div className="space-y-3 flex-1">
@@ -62,7 +62,7 @@ export const ConfigurationScoreWidget: React.FC<ConfigurationScoreWidgetProps> =
                   isComplete
                     ? 'bg-emerald-500'
                     : score >= 60
-                    ? 'bg-gradient-to-r from-brand-600 to-indigo-600'
+                    ? 'bg-gradient-to-r from-brand-600 to-amber-500'
                     : 'bg-amber-500'
                 }`}
                 style={{ width: `${score}%` }}

@@ -314,7 +314,7 @@ const FinancialAccountDetailViewInternal: React.FC<Props> = ({
           <div className="flex items-start gap-4">
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shadow-lg shrink-0 ${
               isBank
-                ? 'bg-blue-600 text-white shadow-blue-600/30'
+                ? 'bg-amber-600 text-white shadow-amber-600/30'
                 : isMomo
                 ? 'bg-emerald-600 text-white shadow-emerald-600/30'
                 : 'bg-amber-500 text-white shadow-amber-500/30'
@@ -339,7 +339,7 @@ const FinancialAccountDetailViewInternal: React.FC<Props> = ({
                   </span>
                 )}
                 {account.isPettyCash && (
-                  <span className="bg-purple-500/30 text-purple-300 border border-purple-500/40 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                  <span className="bg-brand-500/20 text-brand-300 border border-brand-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md">
                     Petite Caisse
                   </span>
                 )}
@@ -376,7 +376,7 @@ const FinancialAccountDetailViewInternal: React.FC<Props> = ({
             icon={ArrowRightLeft}
             onClick={() => onTransfer(account.id)}
             disabled={!account.isActive || (account.currentBalance || 0) <= 0}
-            className="text-xs font-bold text-blue-300 bg-blue-950/40 hover:bg-blue-900/60 border-blue-800/80"
+            className="text-xs font-bold text-brand-300 bg-brand-950/40 hover:bg-brand-900/60 border-brand-800/80"
           >
             Transférer des Fonds
           </Button>
@@ -483,23 +483,23 @@ const FinancialAccountDetailViewInternal: React.FC<Props> = ({
           <span className="text-[10px] text-slate-400 block mt-0.5">Dépenses & règlements</span>
         </Card>
 
-        <Card className="p-3.5 border-l-4 border-l-blue-500 bg-white dark:bg-slate-900 shadow-sm">
+        <Card className="p-3.5 border-l-4 border-l-brand-500 bg-white dark:bg-slate-900 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-blue-600 block tracking-wider">Transferts Reçus</span>
-            <ArrowRightLeft className="w-4 h-4 text-blue-500" />
+            <span className="text-[10px] uppercase font-bold text-brand-600 block tracking-wider">Transferts Reçus</span>
+            <ArrowRightLeft className="w-4 h-4 text-brand-500" />
           </div>
-          <div className="text-lg font-black text-blue-600 dark:text-blue-400 mt-1">
+          <div className="text-lg font-black text-brand-600 dark:text-brand-400 mt-1">
             +{formatCurrency(totalTransfersIn, currency)}
           </div>
           <span className="text-[10px] text-slate-400 block mt-0.5">Virements entrants</span>
         </Card>
 
-        <Card className="p-3.5 border-l-4 border-l-indigo-500 bg-white dark:bg-slate-900 shadow-sm col-span-2 sm:col-span-1">
+        <Card className="p-3.5 border-l-4 border-l-amber-500 bg-white dark:bg-slate-900 shadow-sm col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-indigo-600 block tracking-wider">Transferts Émis</span>
-            <ArrowRightLeft className="w-4 h-4 text-indigo-500" />
+            <span className="text-[10px] uppercase font-bold text-amber-600 block tracking-wider">Transferts Émis</span>
+            <ArrowRightLeft className="w-4 h-4 text-amber-500" />
           </div>
-          <div className="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-1">
+          <div className="text-lg font-black text-amber-600 dark:text-amber-400 mt-1">
             -{formatCurrency(totalTransfersOut, currency)}
           </div>
           <span className="text-[10px] text-slate-400 block mt-0.5">Virements sortants</span>

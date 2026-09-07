@@ -552,7 +552,7 @@ export const EquipmentView: React.FC = () => {
 
                           <button
                             onClick={() => handleOpenEdit(eq)}
-                            className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/40 rounded-lg transition-colors"
                             title="Modifier l'équipement"
                           >
                             <Edit className="w-4 h-4" />

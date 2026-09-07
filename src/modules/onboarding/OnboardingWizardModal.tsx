@@ -537,16 +537,16 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
       <div className="flex flex-col min-h-[750px] -m-6 bg-slate-900 text-slate-100 rounded-lg overflow-hidden border border-slate-700 shadow-2xl">
         
         {/* HEADER BAR */}
-        <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 p-5 border-b border-indigo-800/40 relative">
+        <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-5 border-b border-brand-800/40 relative">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 shadow-inner">
+              <div className="p-2.5 rounded-xl bg-brand-500/20 text-brand-300 border border-brand-400/30 shadow-inner">
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
                 <h2 className="text-base font-black text-white flex items-center gap-2">
                   Assistant de Configuration Initiale du Centre
-                  <Badge variant="primary" className="text-[10px] bg-indigo-500/20 text-indigo-300">
+                  <Badge variant="primary" className="text-[10px] bg-brand-500/20 text-brand-300">
                     {currentTenant?.code || 'AGENCE'}
                   </Badge>
                 </h2>
@@ -577,7 +577,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                   onClick={() => setCurrentStep(step.num)}
                   className={`flex flex-col items-center p-1.5 rounded-lg border text-center transition-all ${
                     isCurrent
-                      ? 'bg-indigo-600/30 border-indigo-400 text-white shadow-md shadow-indigo-500/20 ring-1 ring-indigo-400'
+                      ? 'bg-brand-600/30 border-brand-400 text-white shadow-md shadow-brand-500/20 ring-1 ring-brand-400'
                       : isPassed
                       ? 'bg-emerald-950/30 border-emerald-700/50 text-emerald-300 hover:bg-slate-800'
                       : 'bg-slate-800/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:bg-slate-800'
@@ -588,7 +588,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     {isPassed ? (
                       <Check className="w-3.5 h-3.5 text-emerald-400" />
                     ) : (
-                      <Icon className={`w-3.5 h-3.5 ${isCurrent ? 'text-indigo-400' : 'text-slate-500'}`} />
+                      <Icon className={`w-3.5 h-3.5 ${isCurrent ? 'text-brand-400' : 'text-slate-500'}`} />
                     )}
                     <span className="text-[10px] font-bold">E{step.num}</span>
                   </div>
@@ -617,7 +617,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
               <div className="border-b border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-indigo-400" />
+                    <Building2 className="w-5 h-5 text-brand-400" />
                     Étape 1 : Coordonnées & Modèle d'Activité
                   </h3>
                   <p className="text-xs text-slate-400">
@@ -631,7 +631,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                   <select
                     value={activityType}
                     onChange={(e) => setActivityType(e.target.value as any)}
-                    className="bg-slate-900 text-xs font-bold text-indigo-300 px-2 py-1 rounded-lg border border-slate-700 focus:outline-none cursor-pointer"
+                    className="bg-slate-900 text-xs font-bold text-brand-300 px-2 py-1 rounded-lg border border-slate-700 focus:outline-none cursor-pointer"
                   >
                     <option value="SERVICE_CENTER">Centre de Prestations (Reprographie)</option>
                     <option value="RETAIL_STORE">Boutique & Vente (Commerce)</option>
@@ -780,7 +780,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
             <div className="space-y-6 animate-fadeIn">
               <div className="border-b border-slate-800 pb-3">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Stamp className="w-5 h-5 text-indigo-400" />
+                  <Stamp className="w-5 h-5 text-amber-400" />
                   Étape 2 : Personnalisation Visuelle & Aperçu Facture Direct
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -807,7 +807,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                       </div>
 
                       <div className="space-y-2">
-                        <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md transition">
+                        <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold shadow-md transition">
                           <Upload className="w-4 h-4" /> Parcourir et importer un logo
                           <input
                             type="file"
@@ -849,7 +849,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                       value={footerText}
                       onChange={(e) => setFooterText(e.target.value)}
                       placeholder="Ex: NIF: 100234890 - RCCM/GC-KAL/2024 - Merci pour votre fidélité !"
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                     />
                   </div>
                 </div>
@@ -863,18 +863,18 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                         {logoUrl ? (
                           <img src={logoUrl} alt="Logo" className="w-12 h-12 object-contain rounded-lg shadow-sm" />
                         ) : (
-                          <div className="w-12 h-12 rounded-xl bg-indigo-600 text-white font-black flex items-center justify-center text-base shadow-sm">
+                          <div className="w-12 h-12 rounded-xl bg-brand-600 text-white font-black flex items-center justify-center text-base shadow-sm">
                             {agencyName.slice(0, 2).toUpperCase() || 'AG'}
                           </div>
                         )}
                         <div>
                           <h4 className="font-black text-sm text-slate-900 uppercase leading-tight">{agencyName || 'Nom de votre Centre'}</h4>
-                          <p className="text-[10px] text-indigo-600 font-semibold italic">{slogan}</p>
+                          <p className="text-[10px] text-brand-600 font-semibold italic">{slogan}</p>
                           <p className="text-[9px] text-slate-500">{address} • {city}, {country}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="font-black text-xs text-indigo-700 block">FACTURE</span>
+                        <span className="font-black text-xs text-brand-700 block">FACTURE</span>
                         <span className="font-mono text-[10px] text-slate-700 font-bold">N° FAC-2026-0042</span>
                         <span className="text-[9px] text-slate-400 block">{new Date().toLocaleDateString('fr-FR')}</span>
                       </div>
@@ -905,7 +905,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     </table>
 
                     <div className="flex justify-end pt-1">
-                      <div className="text-right font-black text-xs text-indigo-950 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100">
+                      <div className="text-right font-black text-xs text-emerald-950 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">
                         NET À PAYER : 50 000 {currency}
                       </div>
                     </div>
@@ -929,7 +929,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
             <div className="space-y-6 animate-fadeIn">
               <div className="border-b border-slate-800 pb-3">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Users className="w-5 h-5 text-indigo-400" />
+                  <Users className="w-5 h-5 text-amber-400" />
                   Étape 3 : Équipe & Sécurité d'Accès
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -938,7 +938,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
               </div>
 
               {/* Admin Principal Display */}
-              <div className="bg-gradient-to-r from-amber-950/40 via-slate-800 to-indigo-950/40 p-4 rounded-2xl border border-amber-500/40 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-amber-950/40 via-slate-800 to-emerald-950/40 p-4 rounded-2xl border border-amber-500/40 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-black text-base shadow-md">
                     👑
@@ -1047,7 +1047,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                   {teamMembers.map((u, i) => (
                     <div key={i} className="bg-slate-800 p-3 rounded-xl border border-slate-700 flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-600/30 text-indigo-300 font-bold flex items-center justify-center text-xs border border-indigo-500/30">
+                        <div className="w-9 h-9 rounded-xl bg-brand-600/30 text-brand-300 font-bold flex items-center justify-center text-xs border border-brand-500/30">
                           {u.fullName.slice(0, 2).toUpperCase()}
                         </div>
                         <div>
@@ -1077,7 +1077,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
             <div className="space-y-6 animate-fadeIn">
               <div className="border-b border-slate-800 pb-3">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Briefcase className="w-5 h-5 text-indigo-400" />
+                  <Briefcase className="w-5 h-5 text-brand-400" />
                   Étape 4 : Services & Activités Principales
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -1091,7 +1091,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
               {(activityType === 'SERVICE_CENTER' || activityType === 'MIXED') && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
+                    <h4 className="text-xs font-bold text-brand-300 uppercase tracking-wider">
                       Prestations & Tarifs de Base
                     </h4>
                     <span className="text-[10px] text-slate-400">
@@ -1105,7 +1105,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                         key={srv.code}
                         className={`p-3 rounded-xl border transition ${
                           srv.isSelected
-                            ? 'bg-slate-800/90 border-indigo-500/50 shadow-md'
+                            ? 'bg-slate-800/90 border-brand-500/50 shadow-md'
                             : 'bg-slate-900/40 border-slate-800 opacity-60'
                         }`}
                       >
@@ -1119,7 +1119,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                                 copy[idx].isSelected = !copy[idx].isSelected;
                                 setServicesList(copy);
                               }}
-                              className="rounded text-indigo-500 focus:ring-0"
+                              className="rounded text-brand-500 focus:ring-0"
                             />
                             <span className="text-xs font-bold text-white leading-tight">{srv.name}</span>
                           </label>
@@ -1163,7 +1163,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                       onChange={(e) => setNewServicePrice(Number(e.target.value))}
                       className="bg-slate-900 border-slate-700 text-xs text-white w-24"
                     />
-                    <Button size="sm" onClick={handleAddService} className="bg-indigo-600 hover:bg-indigo-500 text-xs font-bold">
+                    <Button size="sm" onClick={handleAddService} className="bg-brand-600 hover:bg-brand-500 text-xs font-bold">
                       <Plus className="w-3.5 h-3.5 mr-1" /> Ajouter Service
                     </Button>
                   </div>
@@ -1265,7 +1265,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
             <div className="space-y-6 animate-fadeIn">
               <div className="border-b border-slate-800 pb-3">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Percent className="w-5 h-5 text-indigo-400" />
+                  <Percent className="w-5 h-5 text-amber-400" />
                   Étape 5 : Tarifs, Remises & Modes de Règlement
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -1275,7 +1275,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
-                  <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
+                  <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
                     Contrôle des Remises & Réductions
                   </h4>
                   <div>
@@ -1296,7 +1296,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                       type="checkbox"
                       checked={allowDiscounts}
                       onChange={(e) => setAllowDiscounts(e.target.checked)}
-                      className="rounded text-indigo-500 focus:ring-0"
+                      className="rounded text-brand-500 focus:ring-0"
                     />
                     Autoriser les remises exceptionnelles au comptoir
                   </label>
@@ -1324,7 +1324,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                               setAcceptedPaymentMethods(acceptedPaymentMethods.filter(m => m !== pm.id));
                             }
                           }}
-                          className="rounded text-indigo-500 focus:ring-0"
+                          className="rounded text-brand-500 focus:ring-0"
                         />
                         <span>{pm.label}</span>
                       </label>
@@ -1343,7 +1343,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
               <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    <GraduationCap className="w-5 h-5 text-indigo-400" />
+                    <GraduationCap className="w-5 h-5 text-emerald-400" />
                     Étape 6 : Configuration du Module Formation
                   </h3>
                   <p className="text-xs text-slate-400">
@@ -1412,7 +1412,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                       onChange={(e) => setNewCoursePrice(Number(e.target.value))}
                       className="bg-slate-900 border-slate-700 text-xs text-white"
                     />
-                    <Button onClick={handleAddCourse} className="sm:col-span-4 bg-indigo-600 hover:bg-indigo-500 text-xs font-bold">
+                    <Button onClick={handleAddCourse} className="sm:col-span-4 bg-brand-600 hover:bg-brand-500 text-xs font-bold">
                       <Plus className="w-3.5 h-3.5 mr-1" /> Ajouter cette formation
                     </Button>
                   </div>
@@ -1434,7 +1434,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
               <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Store className="w-5 h-5 text-indigo-400" />
+                    <Store className="w-5 h-5 text-amber-400" />
                     Étape 7 : Stock Initial & Consommables
                   </h3>
                   <p className="text-xs text-slate-400">
@@ -1493,7 +1493,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
             <div className="space-y-6 animate-fadeIn">
               <div className="border-b border-slate-800 pb-3">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Truck className="w-5 h-5 text-indigo-400" />
+                  <Truck className="w-5 h-5 text-brand-400" />
                   Étape 8 : Répertoire des Fournisseurs
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -1516,7 +1516,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                       </Button>
                     </div>
                     <p className="text-[11px] text-slate-400">📞 {sup.phone} • {sup.address}</p>
-                    <p className="text-[10px] text-indigo-300 font-medium">{sup.suppliedProducts}</p>
+                    <p className="text-[10px] text-brand-300 font-medium">{sup.suppliedProducts}</p>
                   </div>
                 ))}
               </div>
@@ -1555,7 +1555,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
             <div className="space-y-6 animate-fadeIn">
               <div className="border-b border-slate-800 pb-3">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Landmark className="w-5 h-5 text-indigo-400" />
+                  <Landmark className="w-5 h-5 text-brand-400" />
                   Étape 9 : Trésorerie & Caisses du Centre
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -1629,7 +1629,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
           {/* ========================================================================= */}
           {currentStep === 10 && (
             <div className="space-y-6 animate-fadeIn">
-              <div className="bg-gradient-to-r from-emerald-950/60 via-slate-900 to-indigo-950/60 p-5 rounded-2xl border border-emerald-500/40 text-center space-y-2">
+              <div className="bg-gradient-to-r from-emerald-950/60 via-slate-900 to-emerald-950/60 p-5 rounded-2xl border border-emerald-500/40 text-center space-y-2">
                 <h3 className="text-xl font-black text-white">
                   Récapitulatif Général de la Configuration
                 </h3>
@@ -1646,7 +1646,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     <span className="text-xs font-bold text-white block">1. Coordonnées de l'Agence</span>
                     <span className="text-[11px] text-slate-400">{agencyName} ({activityType}) • {phone} • {city}, {country}</span>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(1)} className="text-xs text-indigo-300 border-slate-600">
+                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(1)} className="text-xs text-brand-300 border-slate-600">
                     <Edit className="w-3 h-3 mr-1" /> Modifier
                   </Button>
                 </div>
@@ -1657,7 +1657,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     <span className="text-xs font-bold text-white block">2. Personnalisation Visuelle</span>
                     <span className="text-[11px] text-slate-400">{logoUrl ? "Logo importé" : "Logo par défaut"} • {headerText}</span>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(2)} className="text-xs text-indigo-300 border-slate-600">
+                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(2)} className="text-xs text-brand-300 border-slate-600">
                     <Edit className="w-3 h-3 mr-1" /> Modifier
                   </Button>
                 </div>
@@ -1668,7 +1668,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     <span className="text-xs font-bold text-white block">3. Administrateur & Collaborateurs</span>
                     <span className="text-[11px] text-slate-400">Admin principal + {teamMembers.length} collaborateur(s)</span>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(3)} className="text-xs text-indigo-300 border-slate-600">
+                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(3)} className="text-xs text-brand-300 border-slate-600">
                     <Edit className="w-3 h-3 mr-1" /> Modifier
                   </Button>
                 </div>
@@ -1679,7 +1679,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     <span className="text-xs font-bold text-white block">4. Services & Activités</span>
                     <span className="text-[11px] text-slate-400">{servicesList.filter(s => s.isSelected).length} service(s) activé(s)</span>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(4)} className="text-xs text-indigo-300 border-slate-600">
+                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(4)} className="text-xs text-brand-300 border-slate-600">
                     <Edit className="w-3 h-3 mr-1" /> Modifier
                   </Button>
                 </div>
@@ -1690,7 +1690,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     <span className="text-xs font-bold text-white block">5. Tarifs & Règlements</span>
                     <span className="text-[11px] text-slate-400">Remise max sans Admin : {maxDiscountWithoutApprovalPct}% • {acceptedPaymentMethods.length} modes de paiement</span>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(5)} className="text-xs text-indigo-300 border-slate-600">
+                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(5)} className="text-xs text-brand-300 border-slate-600">
                     <Edit className="w-3 h-3 mr-1" /> Modifier
                   </Button>
                 </div>
@@ -1701,7 +1701,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     <span className="text-xs font-bold text-white block">6. Module Formation</span>
                     <span className="text-[11px] text-slate-400">{hasTrainingModule ? `${trainingCourses.length} formation(s) configurée(s)` : "Module Formation désactivé"}</span>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(6)} className="text-xs text-indigo-300 border-slate-600">
+                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(6)} className="text-xs text-brand-300 border-slate-600">
                     <Edit className="w-3 h-3 mr-1" /> Modifier
                   </Button>
                 </div>
@@ -1712,7 +1712,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     <span className="text-xs font-bold text-white block">7. Boutique & Stock Initial</span>
                     <span className="text-[11px] text-slate-400">{hasShopModule ? `${shopProducts.length} article(s) initialisé(s)` : "Module stock désactivé"}</span>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(7)} className="text-xs text-indigo-300 border-slate-600">
+                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(7)} className="text-xs text-brand-300 border-slate-600">
                     <Edit className="w-3 h-3 mr-1" /> Modifier
                   </Button>
                 </div>
@@ -1723,7 +1723,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     <span className="text-xs font-bold text-white block">8. Fournisseurs</span>
                     <span className="text-[11px] text-slate-400">{suppliersList.length} fournisseur(s) enregistré(s)</span>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(8)} className="text-xs text-indigo-300 border-slate-600">
+                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(8)} className="text-xs text-brand-300 border-slate-600">
                     <Edit className="w-3 h-3 mr-1" /> Modifier
                   </Button>
                 </div>
@@ -1734,7 +1734,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     <span className="text-xs font-bold text-white block">9. Trésorerie & Caisses</span>
                     <span className="text-[11px] text-slate-400">{financialAccounts.length} caisse(s) / compte(s)</span>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(9)} className="text-xs text-indigo-300 border-slate-600">
+                  <Button size="sm" variant="outline" onClick={() => setCurrentStep(9)} className="text-xs text-brand-300 border-slate-600">
                     <Edit className="w-3 h-3 mr-1" /> Modifier
                   </Button>
                 </div>
@@ -1775,7 +1775,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                   size="sm"
                   onClick={() => handleSaveStep(currentStep, false)}
                   disabled={isSubmitting}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-5"
+                  className="bg-brand-600 hover:bg-brand-500 text-white font-semibold px-5"
                 >
                   {isSubmitting ? (
                     <RefreshCw className="w-4 h-4 animate-spin mr-1.5" />
@@ -1790,7 +1790,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                 size="sm"
                 onClick={() => handleSaveStep(10, true)}
                 disabled={isSubmitting}
-                className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold px-6 shadow-lg shadow-emerald-900/40 text-xs uppercase tracking-wider"
+                className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold px-6 shadow-lg shadow-emerald-900/40 text-xs uppercase tracking-wider"
               >
                 {isSubmitting ? (
                   <RefreshCw className="w-4 h-4 animate-spin mr-1.5" />

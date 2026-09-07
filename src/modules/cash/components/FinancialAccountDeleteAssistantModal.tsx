@@ -200,16 +200,16 @@ export const FinancialAccountDeleteAssistantModal: React.FC<Props> = ({
         {/* CASE 1: ACCOUNT HAS ACTIVE BALANCE (>0) -> OBLIGATORY TRANSFER WIZARD */}
         {/* ========================================================================= */}
         {account.currentBalance > 0 && !deleteCheck.isMainCash && (
-          <div className="p-4 bg-blue-50 dark:bg-blue-950/40 border-2 border-blue-200 dark:border-blue-800/80 rounded-2xl space-y-3">
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-200 dark:border-amber-800/80 rounded-2xl space-y-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0">
                 <ArrowRightLeft className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-blue-950 dark:text-blue-200">
+                <h4 className="text-xs font-bold text-amber-950 dark:text-amber-200">
                   Étape 1 Obligatoire : Vider le Solde Actif
                 </h4>
-                <p className="text-[11px] text-blue-800 dark:text-blue-300">
+                <p className="text-[11px] text-amber-800 dark:text-amber-300">
                   Un compte avec un solde supérieur à zéro ne peut pas être supprimé. Transférez le solde vers un autre compte actif de l'agence.
                 </p>
               </div>
@@ -314,7 +314,7 @@ export const FinancialAccountDeleteAssistantModal: React.FC<Props> = ({
 
               <div className="p-3 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
                 <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <Archive className="w-4 h-4 text-indigo-500" />
+                  <Archive className="w-4 h-4 text-amber-500" />
                   Option 2 : Archivage
                 </span>
                 <p className="text-[11px] text-slate-500">
@@ -325,7 +325,7 @@ export const FinancialAccountDeleteAssistantModal: React.FC<Props> = ({
                   variant="outline"
                   onClick={handleArchive}
                   disabled={isProcessing || account.isArchived}
-                  className="w-full text-xs font-bold text-indigo-600 border-indigo-300 hover:bg-indigo-50"
+                  className="w-full text-xs font-bold text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50 dark:hover:bg-amber-950/30"
                 >
                   {account.isArchived ? 'Déjà Archivé' : 'Archiver Définitivement'}
                 </Button>

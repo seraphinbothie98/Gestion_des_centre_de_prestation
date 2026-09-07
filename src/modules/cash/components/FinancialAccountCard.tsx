@@ -74,7 +74,7 @@ export const FinancialAccountCard: React.FC<FinancialAccountCardProps> = ({
             <div
               className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-lg shadow-sm shrink-0 ${
                 isBank
-                  ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+                  ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
                   : isMomo
                   ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
                   : 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'
@@ -99,7 +99,7 @@ export const FinancialAccountCard: React.FC<FinancialAccountCardProps> = ({
                   </span>
                 )}
                 {account?.isPettyCash && (
-                  <span className="bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                  <span className="bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 text-[9px] font-bold px-1.5 py-0.5 rounded">
                     Petite Caisse
                   </span>
                 )}
@@ -234,9 +234,9 @@ export const FinancialAccountCard: React.FC<FinancialAccountCardProps> = ({
                     onTransfer(account.id);
                   }}
                   disabled={!isActive || (account.currentBalance || 0) <= 0}
-                  className="w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                  className="w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2.5 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 disabled:opacity-40 disabled:pointer-events-none transition-colors"
                 >
-                  <ArrowRightLeft className="w-4 h-4 text-blue-500 shrink-0" />
+                  <ArrowRightLeft className="w-4 h-4 text-brand-500 shrink-0" />
                   <div>
                     <span className="block font-bold">Transférer des fonds</span>
                     <span className="text-[10px] text-slate-400 font-normal">Virement vers un autre compte</span>
@@ -281,9 +281,9 @@ export const FinancialAccountCard: React.FC<FinancialAccountCardProps> = ({
                         setIsMenuOpen(false);
                         onReset(account);
                       }}
-                      className="w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2.5 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors"
+                      className="w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2.5 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
                     >
-                      <AlertOctagon className="w-4 h-4 text-purple-500 shrink-0" />
+                      <AlertOctagon className="w-4 h-4 text-amber-500 shrink-0" />
                       <div>
                         <span className="block font-bold">Réinitialiser le solde</span>
                         <span className="text-[10px] text-slate-400 font-normal">Remise à 0 GNF sécurisée</span>

@@ -39,6 +39,7 @@ import { Button } from '../ui/Button';
 
 interface AppLayoutProps {
   onOpenCertificateVerification?: (code?: string) => void;
+  onOpenMarketplace?: () => void;
 }
 
 const VALID_SECTIONS: NavSection[] = [
@@ -48,7 +49,10 @@ const VALID_SECTIONS: NavSection[] = [
   'users-rbac', 'audit', 'settings', 'licenses', 'saas-superadmin'
 ];
 
-export const AppLayout: React.FC<AppLayoutProps> = ({ onOpenCertificateVerification }) => {
+export const AppLayout: React.FC<AppLayoutProps> = ({ 
+  onOpenCertificateVerification,
+  onOpenMarketplace 
+}) => {
   const { hasPermission, hasAnyPermission, currentUser, currentTenant } = useAuth();
 
   // Initialize active section from URL hash or localStorage for resilient local routing
@@ -236,6 +240,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ onOpenCertificateVerificat
         onNavigate={handleNavigate}
         isOpenMobile={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        onOpenMarketplace={onOpenMarketplace}
       />
 
       {/* Main Content Area */}
@@ -253,6 +258,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ onOpenCertificateVerificat
             setUserProfileTab(tab || 'INFO');
             setIsUserProfileOpen(true);
           }}
+          onOpenMarketplace={onOpenMarketplace}
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">

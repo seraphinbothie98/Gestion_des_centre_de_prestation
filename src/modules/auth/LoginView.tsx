@@ -14,7 +14,11 @@ import {
   Store, Building, Briefcase, ArrowRight, ShieldAlert, PlusCircle, Clock, ShieldX
 } from 'lucide-react';
 
-export const LoginView: React.FC = () => {
+interface LoginViewProps {
+  onBackToMarketplace?: () => void;
+}
+
+export const LoginView: React.FC<LoginViewProps> = ({ onBackToMarketplace }) => {
   const { login, allUsers, currentTenant } = useAuth();
   const state = dbStore.getState();
 
@@ -65,21 +69,36 @@ export const LoginView: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden">
-      {/* Dynamic Background Glows */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
+      {/* Guinea Tri-color Background Glows */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-600/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-600/15 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-xl relative z-10 space-y-6">
-        {/* Brand Header */}
+        {onBackToMarketplace && (
+          <div className="flex justify-start">
+            <button
+              type="button"
+              onClick={onBackToMarketplace}
+              className="inline-flex items-center gap-2 text-xs font-bold text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-850 px-3.5 py-2 rounded-xl border border-slate-800 transition-all shadow-md"
+            >
+              <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+              <span>← Retour à la Marketplace Boutiques</span>
+            </button>
+          </div>
+        )}
+
+        {/* Brand Header with Guinea Tri-color Accents */}
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-cyan-400 text-white flex items-center justify-center mx-auto shadow-glow">
-            <Building2 className="w-8 h-8" />
+          <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-700 text-yellow-400 flex items-center justify-center mx-auto shadow-lg relative overflow-hidden">
+            <div className="absolute inset-0 opacity-20 bg-gradient-to-br from-red-600 via-yellow-400 to-emerald-600" />
+            <Building2 className="w-8 h-8 relative z-10 text-yellow-400" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            PLATEFORME SaaS MULTI-AGENCES
+            <span className="text-red-500">PLATEFORME</span> <span className="text-yellow-400">GESTION</span> & <span className="text-emerald-500">BOUTIQUES</span>
           </h1>
           <p className="text-xs text-slate-400 font-medium max-w-md mx-auto">
-            Système unifié de gestion : Centres de Prestations, Boutiques & Commerces
+            Système unifié : Centres de Prestations & Commerces en République de Guinée 🇬🇳
           </p>
         </div>
 
@@ -95,7 +114,7 @@ export const LoginView: React.FC = () => {
             }}
             className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               authMode === 'AGENCY'
-                ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
@@ -113,12 +132,12 @@ export const LoginView: React.FC = () => {
             }}
             className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               authMode === 'SUPER_ADMIN'
-                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                ? 'bg-yellow-500 text-slate-950 font-black shadow-md shadow-yellow-500/30'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
-            <Crown className="w-4 h-4 text-amber-300" />
-            <span>Administration Globale (Super Admin)</span>
+            <Crown className="w-4 h-4" />
+            <span>Administration Globale</span>
           </button>
         </div>
 
@@ -252,7 +271,7 @@ export const LoginView: React.FC = () => {
                   variant="outline"
                   icon={Sparkles}
                   onClick={() => setIsRegisterModalOpen(true)}
-                  className="w-full py-2.5 bg-gradient-to-r from-brand-600/15 via-indigo-600/15 to-cyan-600/15 hover:from-brand-600/30 hover:via-indigo-600/30 hover:to-cyan-600/30 border-brand-500/40 text-brand-300 hover:text-white font-extrabold text-xs transition-all shadow-md"
+                  className="w-full py-2.5 bg-gradient-to-r from-brand-600/15 via-amber-600/15 to-emerald-600/15 hover:from-brand-600/30 hover:via-amber-600/30 hover:to-emerald-600/30 border-brand-500/40 text-brand-300 hover:text-white font-extrabold text-xs transition-all shadow-md"
                 >
                   Créer mon agence (Essai Gratuit 15 jours)
                 </Button>
@@ -352,7 +371,7 @@ export const LoginView: React.FC = () => {
 
           {/* Niveau 3: Collaborateurs Métier Agence A */}
           <div className="space-y-1.5 pt-1">
-            <div className="text-[10px] font-black uppercase tracking-wider text-purple-400 flex items-center justify-between">
+            <div className="text-[10px] font-black uppercase tracking-wider text-brand-400 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Briefcase className="w-3.5 h-3.5" />
                 NIVEAU 3 — COLLABORATEURS AGENCE A (CPEP)
@@ -367,12 +386,12 @@ export const LoginView: React.FC = () => {
                   onClick={() => handleQuickSelect(u.username, u.passwordHash || `${u.username}123`, 'AGENCY')}
                   className={`p-2 rounded-xl text-left border transition-all flex flex-col justify-between ${
                     identifier === u.username
-                      ? 'bg-purple-950/60 border-purple-500 text-white'
+                      ? 'bg-brand-950/60 border-brand-500 text-white'
                       : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                   }`}
                 >
                   <span className="font-bold text-[11px] text-white truncate">{u.firstName} {u.lastName}</span>
-                  <span className="text-[10px] text-purple-300 font-semibold">{u.roles[0]?.name}</span>
+                  <span className="text-[10px] text-brand-300 font-semibold">{u.roles[0]?.name}</span>
                   <span className="text-[9px] text-slate-500 font-mono mt-0.5">login: {u.username}</span>
                 </button>
               ))}

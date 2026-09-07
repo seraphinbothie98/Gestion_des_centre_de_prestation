@@ -370,12 +370,12 @@ export const PersonsView: React.FC = () => {
           <p className="text-[11px] text-slate-400 mt-0.5">Comptes actifs et réguliers</p>
         </Card>
 
-        <Card className="p-4 border-l-4 border-l-purple-500">
+        <Card className="p-4 border-l-4 border-l-brand-500">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase">Apprenants LMS</span>
-            <GraduationCap className="w-4 h-4 text-purple-500" />
+            <GraduationCap className="w-4 h-4 text-brand-500" />
           </div>
-          <h3 className="text-xl font-extrabold text-purple-600 mt-1">
+          <h3 className="text-xl font-extrabold text-brand-600 mt-1">
             {metrics.learners}
           </h3>
           <p className="text-[11px] text-slate-400 mt-0.5">Inscrits aux formations</p>
@@ -489,7 +489,7 @@ export const PersonsView: React.FC = () => {
                                 : t === 'LEARNER'
                                 ? 'success'
                                 : t === 'TRAINER'
-                                ? 'purple'
+                                ? 'warning'
                                 : 'secondary'
                             }
                           >
@@ -540,7 +540,7 @@ export const PersonsView: React.FC = () => {
 
                         <button
                           onClick={() => handleOpenEdit(p)}
-                          className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/40 rounded-lg transition-colors"
                           title="Modifier le client"
                         >
                           <Edit className="w-4 h-4" />
@@ -881,7 +881,7 @@ export const PersonsView: React.FC = () => {
               </div>
               <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
                 <span className="text-xs text-slate-400 block font-semibold">Certificats Délivrés</span>
-                <span className="text-lg font-bold text-purple-500">{personCertificates.length}</span>
+                <span className="text-lg font-bold text-amber-500">{personCertificates.length}</span>
               </div>
             </div>
 
@@ -979,7 +979,7 @@ export const PersonsView: React.FC = () => {
             {personCertificates.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <Award className="w-3.5 h-3.5 text-purple-500" />
+                  <Award className="w-3.5 h-3.5 text-amber-500" />
                   Certificats Délivrés
                 </h4>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
@@ -990,7 +990,7 @@ export const PersonsView: React.FC = () => {
                         <span className="text-slate-500 dark:text-slate-400 ml-2">— {c.trainingTitle}</span>
                         <span className="block text-[11px] text-slate-400">Mention: {c.mention} • Délivré le {formatDate(c.issueDate)}</span>
                       </div>
-                      <Badge variant="purple" size="sm">
+                      <Badge variant="success" size="sm">
                         Valide
                       </Badge>
                     </div>

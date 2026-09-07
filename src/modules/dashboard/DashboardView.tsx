@@ -113,7 +113,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <Card className="p-5 relative overflow-hidden bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800/80 border-slate-200/80 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pôle Formation</span>
-              <div className="p-2.5 rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-400">
+              <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
                 <GraduationCap className="w-5 h-5" />
               </div>
             </div>
@@ -140,7 +140,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card className="p-4 flex items-center justify-between cursor-pointer hover:border-brand-500 transition-colors" onClick={() => onNavigate('equipment')}>
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 rounded-xl">
+              <div className="p-3 bg-brand-50 dark:bg-brand-950/60 text-brand-600 rounded-xl">
                 <Monitor className="w-5 h-5" />
               </div>
               <div>
@@ -193,8 +193,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <XAxis dataKey="period" stroke="#888888" fontSize={11} />
                   <YAxis stroke="#888888" fontSize={11} tickFormatter={(v) => `${v / 1000}k`} />
                   <Tooltip />
-                  <Area type="monotone" dataKey="services" name="Services" stroke="#0c87eb" fill="#0c87eb" fillOpacity={0.2} />
-                  <Area type="monotone" dataKey="formations" name="Formations" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.2} />
+                  <Area type="monotone" dataKey="services" name="Services" stroke="#16a34a" fill="#16a34a" fillOpacity={0.2} />
+                  <Area type="monotone" dataKey="formations" name="Formations" stroke="#eab308" fill="#eab308" fillOpacity={0.2} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -209,10 +209,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <ShieldCheck className="w-4 h-4 mr-2 text-brand-500" /> Gérer les Utilisateurs & Postes (4 Rôles)
               </Button>
               <Button variant="outline" className="w-full justify-start text-xs" onClick={() => onNavigate('equipment')}>
-                <Monitor className="w-4 h-4 mr-2 text-indigo-500" /> Parc Matériel & Maintenance
+                <Monitor className="w-4 h-4 mr-2 text-brand-500" /> Parc Matériel & Maintenance
               </Button>
               <Button variant="outline" className="w-full justify-start text-xs" onClick={() => onNavigate('settings')}>
-                <Layout className="w-4 h-4 mr-2 text-purple-500" /> Identité Visuelle & Logo
+                <Layout className="w-4 h-4 mr-2 text-amber-500" /> Identité Visuelle & Logo
               </Button>
               <Button variant="outline" className="w-full justify-start text-xs" onClick={() => onNavigate('reports')}>
                 <TrendingUp className="w-4 h-4 mr-2 text-emerald-500" /> Rapports Financiers & Exports
@@ -264,7 +264,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return (
       <div className="space-y-6">
         {/* Banner: Polyvalent Workstation Status */}
-        <div className="bg-gradient-to-r from-emerald-800 via-teal-900 to-slate-900 p-6 rounded-3xl text-white shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-gradient-to-r from-emerald-800 via-emerald-900 to-slate-900 p-6 rounded-3xl text-white shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${activeSession ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
@@ -293,9 +293,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <p className="text-[10px] text-slate-400 mt-0.5">Nouvelles saisies</p>
           </Card>
 
-          <Card className="p-4 border-l-4 border-l-purple-500 cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate('production')}>
+          <Card className="p-4 border-l-4 border-l-amber-500 cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate('production')}>
             <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase">2. Production</span>
-            <h3 className="text-xl sm:text-2xl font-extrabold text-purple-600 mt-1">{inProductionOrders.length} en cours</h3>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-amber-600 mt-1">{inProductionOrders.length} en cours</h3>
             <p className="text-[10px] text-slate-400 mt-0.5">Impressions / reliures</p>
           </Card>
 
@@ -318,7 +318,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Factory className="w-4 h-4 text-purple-500" />
+                <Factory className="w-4 h-4 text-amber-500" />
                 Atelier : Commandes à Produire ({pendingOrders.length + inProductionOrders.length})
               </CardTitle>
               <Button size="sm" variant="ghost" onClick={() => onNavigate('production')}>
@@ -342,7 +342,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                       <div className="flex items-center gap-1.5">
                         {o.status === 'PENDING' || o.status === 'CONFIRMED' ? (
-                          <Button size="sm" variant="outline" className="text-purple-600" onClick={() => handleQuickStatusChange(o.id, 'IN_PRODUCTION')}>
+                          <Button size="sm" variant="outline" className="text-amber-600" onClick={() => handleQuickStatusChange(o.id, 'IN_PRODUCTION')}>
                             Démarrer
                           </Button>
                         ) : (
@@ -423,10 +423,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return (
       <div className="space-y-6">
         {/* Banner: Production & Machines */}
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 p-6 rounded-3xl text-white shadow-lg border border-indigo-800/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 p-6 rounded-3xl text-white shadow-lg border border-brand-800/30 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h3 className="text-lg font-extrabold flex items-center gap-2">
-              <Factory className="w-5 h-5 text-indigo-400" />
+              <Factory className="w-5 h-5 text-brand-400" />
               Atelier de Production & Matériel Technique
             </h3>
             <p className="text-xs text-slate-300 mt-0.5">
@@ -458,9 +458,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <Card className="p-4 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800/80">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 uppercase">En Cours Tirage/Reliure</span>
-              <Printer className="w-4 h-4 text-blue-500" />
+              <Printer className="w-4 h-4 text-brand-500" />
             </div>
-            <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-2">
+            <div className="text-2xl font-black text-brand-600 dark:text-brand-400 mt-2">
               {inProduction.length}
             </div>
           </Card>
@@ -529,7 +529,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <Card>
             <CardHeader className="flex items-center justify-between">
               <CardTitle className="text-sm font-extrabold flex items-center gap-2">
-                <Monitor className="w-4 h-4 text-indigo-500" />
+                <Monitor className="w-4 h-4 text-brand-500" />
                 État du Parc Matériel & Imprimantes
               </CardTitle>
               <Button size="sm" variant="ghost" onClick={() => onNavigate('equipment')}>
@@ -582,13 +582,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     return (
       <div className="space-y-6">
-        <div className="bg-gradient-to-r from-purple-800 via-indigo-900 to-slate-900 p-6 rounded-3xl text-white shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 p-6 rounded-3xl text-white shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h3 className="text-lg font-extrabold flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-purple-300" />
+              <GraduationCap className="w-5 h-5 text-amber-400" />
               Pôle Formation & Gestion Pédagogique
             </h3>
-            <p className="text-xs text-purple-100 mt-0.5">
+            <p className="text-xs text-slate-300 mt-0.5">
               Supervision des cours, planification des sessions, suivi des apprenants et certificats.
             </p>
           </div>
@@ -604,9 +604,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* Training KPIs */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <Card className="p-4 border-l-4 border-l-purple-500">
+          <Card className="p-4 border-l-4 border-l-amber-500">
             <span className="text-xs font-semibold text-slate-500 uppercase">Formations Actives</span>
-            <h3 className="text-2xl font-extrabold text-purple-600 mt-1">{activeTrainings.length}</h3>
+            <h3 className="text-2xl font-extrabold text-amber-600 mt-1">{activeTrainings.length}</h3>
             <p className="text-[11px] text-slate-400 mt-0.5">Dans le catalogue</p>
           </Card>
 
@@ -633,7 +633,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-purple-500" />
+              <Calendar className="w-4 h-4 text-amber-500" />
               Sessions de Formation en Cours & Programmées
             </CardTitle>
             <Button size="sm" variant="ghost" onClick={() => onNavigate('training')}>
@@ -655,7 +655,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Badge variant="purple" size="sm">{enrolledCount} / {s.capacity} apprenants</Badge>
+                        <Badge variant="warning" size="sm">{enrolledCount} / {s.capacity} apprenants</Badge>
                         <Badge variant={s.status === 'IN_PROGRESS' ? 'success' : 'primary'} size="sm">
                           {s.status === 'IN_PROGRESS' ? 'En Cours' : 'Inscriptions Ouvertes'}
                         </Badge>
@@ -804,7 +804,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <Wallet className="w-4 h-4 mr-2 text-emerald-500" /> Gestion Caisse & Espèces
               </Button>
               <Button variant="outline" className="w-full justify-start text-xs" onClick={() => onNavigate('persons')}>
-                <Users className="w-4 h-4 mr-2 text-purple-500" /> Répertoire Clients & Comptes
+                <Users className="w-4 h-4 mr-2 text-brand-500" /> Répertoire Clients & Comptes
               </Button>
             </div>
           </Card>
@@ -856,7 +856,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             Bonjour, {currentUser?.firstName} {currentUser?.lastName} 👋
           </h2>
           <div className="flex flex-wrap items-center gap-2 mt-2">
-            <Badge variant="purple" size="sm">{currentUser?.roles[0]?.name || 'Collaborateur'}</Badge>
+            <Badge variant="warning" size="sm">{currentUser?.roles[0]?.name || 'Collaborateur'}</Badge>
             <Badge variant="secondary" size="sm">
               Univers: {isRetailStore ? 'Boutique & Commerce' : (currentUser?.department || 'Services')}
             </Badge>

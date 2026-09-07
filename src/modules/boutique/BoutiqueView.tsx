@@ -1199,12 +1199,12 @@ export const BoutiqueView: React.FC = () => {
               <p className="text-[11px] text-slate-400 mt-0.5">Taux de marge moyen : {analyticsMetrics.averageMarginPct.toFixed(1)}%</p>
             </Card>
 
-            <Card className="p-4 border-l-4 border-l-purple-500">
+            <Card className="p-4 border-l-4 border-l-amber-500">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500 uppercase">Panier Moyen</span>
-                <ShoppingCart className="w-4 h-4 text-purple-500" />
+                <ShoppingCart className="w-4 h-4 text-amber-500" />
               </div>
-              <h3 className="text-xl font-extrabold text-purple-600 mt-1">
+              <h3 className="text-xl font-extrabold text-amber-600 mt-1">
                 {formatCurrency(analyticsMetrics.averageBasket)}
               </h3>
               <p className="text-[11px] text-slate-400 mt-0.5">Par transaction comptoir</p>

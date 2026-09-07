@@ -77,7 +77,7 @@ VALUES (
 INSERT INTO roles (id, tenant_id, name, code, is_system, description) VALUES
 ('r0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'Super Admin', 'SUPER_ADMIN', TRUE, 'Accès complet et illimité à l''ensemble de la plateforme'),
 ('r0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'Admin Centre', 'ADMIN_CENTRE', TRUE, 'Gestion complète du centre et des utilisateurs'),
-('r0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000003', 'Gérant', 'GERANT', TRUE, 'Gestion opérationnelle, stocks, commandes et caisse'),
+('r0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', 'Gérant', 'GERANT', TRUE, 'Gestion opérationnelle, stocks, commandes et caisse'),
 ('r0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000001', 'Réceptionniste', 'RECEPTIONNISTE', TRUE, 'Accueil, création des clients et des commandes'),
 ('r0000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000001', 'Caissier', 'CAISSIER', TRUE, 'Encaissements, gestion des sessions et mouvements de caisse'),
 ('r0000000-0000-0000-0000-000000000006', 'a0000000-0000-0000-0000-000000000001', 'Opérateur Production', 'OPERATEUR', TRUE, 'Exécution des travaux de reprographie, scan et reliure'),

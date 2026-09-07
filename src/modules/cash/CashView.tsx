@@ -1186,7 +1186,7 @@ export const CashView: React.FC = () => {
             variant="outline"
             icon={ArrowRightLeft}
             onClick={() => handleOpenTransfer()}
-            className="text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 border-indigo-200 font-bold text-xs"
+            className="text-brand-700 bg-brand-50 dark:bg-brand-950/40 hover:bg-brand-100 border-brand-200 font-bold text-xs"
           >
             🔄 Nouveau Transfert
           </Button>
@@ -1279,7 +1279,7 @@ export const CashView: React.FC = () => {
           {/* Exercice Selector */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+              <Calendar className="w-3.5 h-3.5 text-amber-400" />
               Exercice :
             </span>
             <select
@@ -1290,7 +1290,7 @@ export const CashView: React.FC = () => {
                 const currentP = pers.find(p => p.isCurrentPeriod) || pers[0];
                 setSelectedFinancialPeriodId(currentP?.id || 'ALL');
               }}
-              className="bg-slate-800 text-white text-xs font-bold py-1 px-2.5 rounded-lg border border-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="bg-slate-800 text-white text-xs font-bold py-1 px-2.5 rounded-lg border border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer"
             >
               {agencyYears.map(fy => (
                 <option key={fy.id} value={fy.id}>
@@ -1303,13 +1303,13 @@ export const CashView: React.FC = () => {
           {/* Période Selector */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-indigo-400" />
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
               Période :
             </span>
             <select
               value={selectedFinancialPeriodId}
               onChange={(e) => setSelectedFinancialPeriodId(e.target.value)}
-              className="bg-slate-800 text-white text-xs font-bold py-1 px-2.5 rounded-lg border border-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="bg-slate-800 text-white text-xs font-bold py-1 px-2.5 rounded-lg border border-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer"
             >
               <option value="ALL">Toutes les périodes ({currentYearObj?.year || 'Global'})</option>
               {agencyPeriods.map(p => (
@@ -1349,7 +1349,7 @@ export const CashView: React.FC = () => {
           </div>
           <button
             onClick={() => setActiveTab('years-periods')}
-            className="text-xs text-indigo-400 hover:text-indigo-300 underline font-sans font-medium"
+            className="text-xs text-amber-400 hover:text-amber-300 underline font-sans font-medium"
           >
             Gérer les exercices & périodes →
           </button>
@@ -1453,12 +1453,12 @@ export const CashView: React.FC = () => {
                 </span>
               </Card>
 
-              <Card className="p-4 border-l-4 border-l-blue-500 bg-gradient-to-br from-white to-blue-50/20 dark:from-slate-900 dark:to-blue-950/20 shadow-sm">
+              <Card className="p-4 border-l-4 border-l-amber-500 bg-gradient-to-br from-white to-amber-50/20 dark:from-slate-900 dark:to-amber-950/20 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Comptes Bancaires</span>
-                  <Landmark className="w-5 h-5 text-blue-500" />
+                  <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Comptes Bancaires</span>
+                  <Landmark className="w-5 h-5 text-amber-500" />
                 </div>
-                <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-2">
+                <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-2">
                   {formatCurrency(treasuryMetrics.bankTotal)}
                 </div>
                 <span className="text-[11px] text-slate-400 block mt-1">
@@ -1528,7 +1528,7 @@ export const CashView: React.FC = () => {
                     variant="outline"
                     icon={ArrowRightLeft}
                     onClick={() => handleOpenTransfer()}
-                    className="text-xs font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 border-indigo-200"
+                    className="text-xs font-bold text-brand-700 bg-brand-50 dark:bg-brand-950/40 hover:bg-brand-100 border-brand-200"
                   >
                     Effectuer un Virement
                   </Button>
@@ -1659,12 +1659,12 @@ export const CashView: React.FC = () => {
                               <TableCell>
                                 <div className="flex items-center gap-2.5">
                                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                                    isBank
-                                      ? 'bg-blue-100 text-blue-600'
-                                      : isMomo
-                                      ? 'bg-emerald-100 text-emerald-600'
-                                      : 'bg-amber-100 text-amber-600'
-                                  }`}>
+                                      isBank
+                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                                        : isMomo
+                                        ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
+                                        : 'bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-400'
+                                    }`}>
                                     {isBank ? <Landmark className="w-4 h-4" /> : isMomo ? <Smartphone className="w-4 h-4" /> : <Wallet className="w-4 h-4" />}
                                   </div>
                                   <div>
@@ -1710,7 +1710,7 @@ export const CashView: React.FC = () => {
                                     </span>
                                   )}
                                   {acc.isPettyCash && (
-                                    <span className="bg-purple-100 text-purple-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                    <span className="bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 text-[9px] font-bold px-1.5 py-0.5 rounded">
                                       Petite Caisse
                                     </span>
                                   )}
@@ -1765,7 +1765,7 @@ export const CashView: React.FC = () => {
                                     icon={ArrowRightLeft}
                                     onClick={() => handleOpenTransfer(acc.id)}
                                     disabled={!acc.isActive || acc.currentBalance <= 0}
-                                    className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                                    className="h-8 w-8 p-0 text-brand-600 hover:bg-brand-50"
                                     title="Transférer"
                                   />
                                   {canManageSensitiveFinancials && (
@@ -1830,7 +1830,7 @@ export const CashView: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
               <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <ArrowRightLeft className="w-5 h-5 text-indigo-600" />
+                <ArrowRightLeft className="w-5 h-5 text-brand-600" />
                 Virements & Transferts Inter-Comptes ({agencyTransfers.length})
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -2059,7 +2059,7 @@ export const CashView: React.FC = () => {
           ) : (
             <>
               {/* Session Info Ribbon */}
-              <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-4 sm:p-5 rounded-2xl text-white shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 p-4 sm:p-5 rounded-2xl text-white shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
                     <Wallet className="w-5 h-5" />
@@ -2135,15 +2135,15 @@ export const CashView: React.FC = () => {
                 </Card>
 
                 {/* 3. Alimentations de Caisse */}
-                <Card className="p-4 border-l-4 border-l-indigo-500">
+                <Card className="p-4 border-l-4 border-l-amber-500">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] sm:text-xs font-semibold text-indigo-500 uppercase">Alimentations</span>
-                    <Plus className="w-4 h-4 text-indigo-500" />
+                    <span className="text-[10px] sm:text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase">Alimentations</span>
+                    <Plus className="w-4 h-4 text-amber-500" />
                   </div>
-                  <h3 className="text-base sm:text-xl font-extrabold text-indigo-600 mt-1">
+                  <h3 className="text-base sm:text-xl font-extrabold text-amber-600 mt-1">
                     +{formatCurrency(todaySessionMetrics.cashInjections)}
                   </h3>
-                  <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-0.5 font-medium">
+                  <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5 font-medium">
                     Apports (hors CA)
                   </p>
                 </Card>
@@ -2192,24 +2192,24 @@ export const CashView: React.FC = () => {
               {/* Secondary Stats: Remises et Volumes */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <Card className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600">
+                  <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600">
                     <Percent className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 block uppercase font-bold">Remises Accordées</span>
-                    <span className="text-sm sm:text-base font-extrabold text-purple-600">
+                    <span className="text-sm sm:text-base font-extrabold text-amber-600">
                       {formatCurrency(todaySessionMetrics.discountsTotal)}
                     </span>
                   </div>
                 </Card>
 
                 <Card className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600">
+                  <div className="p-2.5 rounded-xl bg-brand-50 dark:bg-brand-950/40 text-brand-600">
                     <ShoppingBag className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 block uppercase font-bold">Commandes Encaissées</span>
-                    <span className="text-sm sm:text-base font-extrabold text-blue-600">
+                    <span className="text-sm sm:text-base font-extrabold text-brand-600">
                       {todaySessionMetrics.ordersCount} commandes
                     </span>
                   </div>
@@ -2270,10 +2270,10 @@ export const CashView: React.FC = () => {
                 <Card className="p-4 sm:p-6 space-y-4">
                   <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-blue-500" />
+                      <BarChart3 className="w-4 h-4 text-amber-500" />
                       Répartition par Mode de Paiement
                     </CardTitle>
-                    <span className="text-xs font-extrabold text-blue-600">
+                    <span className="text-xs font-extrabold text-amber-600">
                       Total: {formatCurrency(todaySessionMetrics.inflows)}
                     </span>
                   </CardHeader>
@@ -2292,7 +2292,7 @@ export const CashView: React.FC = () => {
                           </div>
                           <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                              className="h-full bg-amber-500 rounded-full transition-all duration-300"
                               style={{ width: `${percent}%` }}
                             />
                           </div>
@@ -2589,12 +2589,12 @@ export const CashView: React.FC = () => {
               <p className="text-[10px] text-slate-400 mt-0.5">{periodMetrics.paymentsCount} encaissements</p>
             </Card>
 
-            <Card className="p-4 border-l-4 border-l-indigo-500">
-              <span className="text-[10px] sm:text-xs font-bold text-indigo-500 uppercase block">2. Alimentations</span>
-              <h3 className="text-base sm:text-xl font-extrabold text-indigo-600 mt-1">
+            <Card className="p-4 border-l-4 border-l-amber-500">
+              <span className="text-[10px] sm:text-xs font-bold text-amber-500 uppercase block">2. Alimentations</span>
+              <h3 className="text-base sm:text-xl font-extrabold text-amber-600 mt-1">
                 {formatCurrency(periodMetrics.totalCashInjections)}
               </h3>
-              <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-0.5 font-medium">Apports (hors CA)</p>
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 font-medium">Apports (hors CA)</p>
             </Card>
 
             <Card className="p-4 border-l-4 border-l-rose-500">
@@ -2613,9 +2613,9 @@ export const CashView: React.FC = () => {
               <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5">Rendus clients</p>
             </Card>
 
-            <Card className="p-4 border-l-4 border-l-purple-500">
-              <span className="text-[10px] sm:text-xs font-bold text-purple-500 uppercase block">5. Dettes Fournisseurs</span>
-              <h3 className="text-base sm:text-xl font-extrabold text-purple-600 mt-1">
+            <Card className="p-4 border-l-4 border-l-rose-500">
+              <span className="text-[10px] sm:text-xs font-bold text-rose-500 uppercase block">5. Dettes Fournisseurs</span>
+              <h3 className="text-base sm:text-xl font-extrabold text-rose-600 mt-1">
                 {formatCurrency(periodMetrics.totalSupplierDebts)}
               </h3>
               <p className="text-[10px] text-slate-400 mt-0.5">Engagées non payées</p>
@@ -2722,10 +2722,10 @@ export const CashView: React.FC = () => {
             <Card className="p-4 sm:p-6 space-y-4">
               <CardTitle className="text-sm font-bold flex items-center justify-between">
                 <span className="flex items-center gap-2">
-                  <PieIcon className="w-4 h-4 text-purple-500" />
+                  <PieIcon className="w-4 h-4 text-amber-500" />
                   Recettes par Mode de Paiement
                 </span>
-                <span className="text-xs font-extrabold text-purple-600">
+                <span className="text-xs font-extrabold text-amber-600">
                   {formatCurrency(periodMetrics.totalGrossRevenue)}
                 </span>
               </CardTitle>
@@ -2744,7 +2744,7 @@ export const CashView: React.FC = () => {
                       </div>
                       <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-purple-500 rounded-full transition-all duration-300"
+                          className="h-full bg-amber-500 rounded-full transition-all duration-300"
                           style={{ width: `${percent}%` }}
                         />
                       </div>
@@ -3242,8 +3242,8 @@ export const CashView: React.FC = () => {
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-indigo-600 dark:text-indigo-400 block uppercase font-bold">3. Alimentation</span>
-              <span className="font-extrabold text-sm text-indigo-600">
+              <span className="text-[10px] text-amber-600 dark:text-amber-400 block uppercase font-bold">3. Alimentation</span>
+              <span className="font-extrabold text-sm text-amber-600">
                 +{formatCurrency(todaySessionMetrics.cashInjections)}
               </span>
             </div>
@@ -3896,8 +3896,8 @@ export const CashView: React.FC = () => {
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-indigo-600 block uppercase font-bold">3. Alimentations</span>
-                        <span className="font-extrabold text-indigo-600 text-sm">
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 block uppercase font-bold">3. Alimentations</span>
+                        <span className="font-extrabold text-amber-600 text-sm">
                           +{formatCurrency(cashInjections)}
                         </span>
                       </div>
@@ -4119,7 +4119,7 @@ export const CashView: React.FC = () => {
             )}
 
             {accType === 'BANK' && (
-              <div className="grid grid-cols-2 gap-3 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800">
+              <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800">
                 <div>
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Nom de la Banque
@@ -4216,9 +4216,9 @@ export const CashView: React.FC = () => {
           maxWidth="md"
         >
           <form onSubmit={handleExecuteTransfer} className="space-y-4 pt-1">
-            <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 text-xs text-indigo-900 dark:text-indigo-300 space-y-1">
+            <div className="p-3 bg-brand-50 dark:bg-brand-950/40 rounded-xl border border-brand-200 dark:border-brand-800 text-xs text-brand-900 dark:text-brand-300 space-y-1">
               <div className="flex items-center gap-1.5 font-bold">
-                <ArrowRightLeft className="w-4 h-4 text-indigo-600" />
+                <ArrowRightLeft className="w-4 h-4 text-brand-600" />
                 Translation de Trésorerie Interne
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
@@ -4272,7 +4272,7 @@ export const CashView: React.FC = () => {
                 value={transferAmount}
                 onChange={(e) => setTransferAmount(parseInt(e.target.value) || 0)}
                 required
-                className="text-base font-black text-indigo-600"
+                className="text-base font-black text-brand-600"
               />
             </div>
 
@@ -4293,7 +4293,7 @@ export const CashView: React.FC = () => {
               <Button type="button" variant="outline" onClick={() => setIsTransferModalOpen(false)}>
                 Annuler
               </Button>
-              <Button type="submit" variant="primary" icon={ArrowRightLeft} className="bg-indigo-600 hover:bg-indigo-700 font-bold">
+              <Button type="submit" variant="primary" icon={ArrowRightLeft} className="font-bold">
                 Exécuter le Transfert
               </Button>
             </div>

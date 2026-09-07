@@ -168,10 +168,10 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
   return (
     <div className="space-y-6">
       {/* HEADER SECTION: FINANCIAL YEARS & ACTIONS */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl shadow-xl border border-indigo-900/50">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 text-white rounded-2xl shadow-xl border border-brand-900/50">
         <div>
           <div className="flex items-center gap-3 mb-1.5">
-            <span className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+            <span className="p-2.5 bg-brand-500/20 text-brand-400 rounded-xl border border-brand-500/30">
               <Calendar className="w-6 h-6" />
             </span>
             <div>
@@ -194,7 +194,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
                   onClick={() => onSelectYear(fy.id)}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${
                     isSelected
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                      ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
                       : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
                   }`}
                 >
@@ -215,7 +215,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
                 setNewYearCode(`EX-${activeYear ? activeYear.year + 1 : new Date().getFullYear() + 1}`);
                 setIsCreateYearModalOpen(true);
               }}
-              className="bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold py-2 px-3.5 rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+              className="bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold py-2 px-3.5 rounded-xl flex items-center gap-2 shadow-lg shadow-brand-500/20"
             >
               <Plus className="w-4 h-4" />
               Nouvel Exercice
@@ -226,10 +226,10 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
 
       {/* ACTIVE YEAR BANNER & CONTROLS */}
       {activeYear && (
-        <Card className="border-indigo-100 dark:border-indigo-950 shadow-sm overflow-hidden">
-          <div className="p-4 sm:p-5 bg-indigo-50/50 dark:bg-indigo-950/20 border-b border-indigo-100 dark:border-indigo-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <Card className="border-brand-100 dark:border-brand-950 shadow-sm overflow-hidden">
+          <div className="p-4 sm:p-5 bg-brand-50/30 dark:bg-brand-950/20 border-b border-brand-100 dark:border-brand-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 font-black text-lg">
+              <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-brand-200 dark:border-brand-800 text-brand-600 dark:text-brand-400 font-black text-lg">
                 {activeYear.year}
               </div>
               <div>
@@ -244,7 +244,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
                     {activeYear.status === 'ACTIVE' ? 'ACTIF' : activeYear.status === 'CLOSED' ? 'CLÔTURÉ' : 'ARCHIVÉ'}
                   </Badge>
                   {activeYear.isCurrentYear && (
-                    <Badge variant="primary" className="text-[10px] uppercase font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-300">
+                    <Badge variant="primary" className="text-[10px] uppercase font-bold bg-brand-100 text-brand-800 dark:bg-brand-900/60 dark:text-brand-300">
                       Exercice par Défaut
                     </Badge>
                   )}
@@ -302,7 +302,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
                         if (res.success) showToast(res.message, 'success');
                       }
                     }}
-                    className="text-xs font-medium text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-800 hover:bg-purple-50"
+                    className="text-xs font-medium text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-800 hover:bg-slate-100"
                   >
                     <Archive className="w-3.5 h-3.5 mr-1.5" />
                     Archiver l'Exercice
@@ -343,7 +343,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
                 key={period.id}
                 className={`relative rounded-2xl p-4 transition-all border flex flex-col justify-between ${
                   isSelected
-                    ? 'bg-white dark:bg-slate-900 border-indigo-500 shadow-md ring-2 ring-indigo-500/20'
+                    ? 'bg-white dark:bg-slate-900 border-brand-500 shadow-md ring-2 ring-brand-500/20'
                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm'
                 }`}
               >
@@ -423,7 +423,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
                     }}
                     className="flex-1 text-[11px] py-1 h-7 font-medium text-slate-700 dark:text-slate-300"
                   >
-                    <Eye className="w-3 h-3 mr-1 text-indigo-500" />
+                    <Eye className="w-3 h-3 mr-1 text-brand-500" />
                     Bilan
                   </Button>
 
@@ -465,7 +465,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
                           });
                           setCustomBalances(initialCustom);
                         }}
-                        className="text-[11px] py-1 h-7 font-medium text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/50 hover:bg-indigo-50"
+                        className="text-[11px] py-1 h-7 font-medium text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-900/50 hover:bg-brand-50"
                         title="Nouveau départ / Configuration des soldes"
                       >
                         <RefreshCw className="w-3 h-3" />
@@ -488,7 +488,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
         title="Création d'un Nouvel Exercice Financier"
       >
         <form onSubmit={handleCreateYear} className="space-y-4">
-          <div className="p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl border border-indigo-100 dark:border-indigo-900/40 text-xs text-indigo-900 dark:text-indigo-300">
+          <div className="p-3 bg-brand-50 dark:bg-brand-950/30 rounded-xl border border-brand-100 dark:border-brand-900/40 text-xs text-brand-900 dark:text-brand-300">
             <p className="font-semibold mb-1">Architecture Comptable Automatisée :</p>
             <p>
               La création d'un exercice financier génère automatiquement les <strong>12 périodes mensuelles</strong> de Janvier à Décembre associées à votre agence.
@@ -558,7 +558,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
             </Button>
             <Button
               type="submit"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+              className="bg-brand-600 hover:bg-brand-500 text-white font-semibold"
             >
               Créer l'Exercice & 12 Périodes
             </Button>
@@ -616,7 +616,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
         <div className="space-y-4">
           <p className="text-xs text-slate-600 dark:text-slate-400">
             Confirmez-vous l'archivage de la période <strong>{periodToArchive?.name}</strong> ?
-            Elle passera en statut <span className="font-semibold text-purple-600">ARCHIVÉE</span>.
+            Elle passera en statut <span className="font-semibold text-slate-700 dark:text-slate-300">ARCHIVÉE</span>.
           </p>
           <div className="pt-3 border-t flex justify-end gap-2">
             <Button variant="outline" onClick={() => setPeriodToArchive(null)}>
@@ -624,7 +624,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
             </Button>
             <Button
               onClick={handleConfirmArchivePeriod}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold"
+              className="bg-slate-800 hover:bg-slate-700 text-white font-semibold"
             >
               Confirmer l'Archivage
             </Button>
@@ -668,9 +668,9 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
         title={`Configuration du cycle : ${periodToReset?.name}`}
       >
         <div className="space-y-4">
-          <div className="p-3.5 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900/40 text-xs text-blue-950 dark:text-blue-200">
+          <div className="p-3.5 bg-brand-50/40 dark:bg-brand-950/30 rounded-xl border border-brand-200 dark:border-brand-900/40 text-xs text-brand-950 dark:text-brand-200">
             <div className="flex items-center gap-2 font-bold mb-1">
-              <ShieldCheck className="w-4 h-4 text-blue-600" />
+              <ShieldCheck className="w-4 h-4 text-brand-600" />
               Garantie d'intégrité comptable :
             </div>
             <p>
@@ -687,7 +687,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
               <label
                 className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
                   resetOption === 'ZERO_ALL'
-                    ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 ring-1 ring-indigo-500'
+                    ? 'border-brand-600 bg-brand-50/50 dark:bg-brand-950/30 ring-1 ring-brand-500'
                     : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                 }`}
               >
@@ -696,7 +696,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
                   name="resetOption"
                   checked={resetOption === 'ZERO_ALL'}
                   onChange={() => setResetOption('ZERO_ALL')}
-                  className="mt-0.5 text-indigo-600"
+                  className="mt-0.5 text-brand-600"
                 />
                 <div>
                   <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
@@ -711,7 +711,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
               <label
                 className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
                   resetOption === 'KEEP_BALANCES'
-                    ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 ring-1 ring-indigo-500'
+                    ? 'border-brand-600 bg-brand-50/50 dark:bg-brand-950/30 ring-1 ring-brand-500'
                     : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                 }`}
               >
@@ -720,7 +720,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
                   name="resetOption"
                   checked={resetOption === 'KEEP_BALANCES'}
                   onChange={() => setResetOption('KEEP_BALANCES')}
-                  className="mt-0.5 text-indigo-600"
+                  className="mt-0.5 text-brand-600"
                 />
                 <div>
                   <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
@@ -735,7 +735,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
               <label
                 className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
                   resetOption === 'CUSTOM'
-                    ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 ring-1 ring-indigo-500'
+                    ? 'border-brand-600 bg-brand-50/50 dark:bg-brand-950/30 ring-1 ring-brand-500'
                     : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                 }`}
               >
@@ -744,7 +744,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
                   name="resetOption"
                   checked={resetOption === 'CUSTOM'}
                   onChange={() => setResetOption('CUSTOM')}
-                  className="mt-0.5 text-indigo-600"
+                  className="mt-0.5 text-brand-600"
                 />
                 <div>
                   <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
@@ -790,7 +790,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
             </Button>
             <Button
               onClick={handleConfirmResetPeriod}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold flex items-center gap-2"
+              className="bg-brand-600 hover:bg-brand-500 text-white font-semibold flex items-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
               Appliquer la Configuration
@@ -811,7 +811,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
         >
           <div className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
             {/* PERIOD BANNER */}
-            <div className="p-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 text-white rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-base font-bold">{periodForDetail.name}</span>
@@ -825,7 +825,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
               </div>
 
               <div className="text-right">
-                <p className="text-[11px] text-indigo-300 uppercase tracking-wider font-semibold">Trésorerie Consolidée</p>
+                <p className="text-[11px] text-brand-300 uppercase tracking-wider font-semibold">Trésorerie Consolidée</p>
                 <p className="text-xl font-black text-emerald-400">
                   {formatCurrency(periodDetailSummary.consolidatedTreasury)} GNF
                 </p>
@@ -848,9 +848,9 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
                 </p>
               </div>
 
-              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl border border-indigo-200 dark:border-indigo-900/50">
-                <p className="text-[11px] text-indigo-700 dark:text-indigo-400 font-medium">Flux Net Période</p>
-                <p className={`text-base font-bold mt-0.5 ${periodDetailSummary.netCashFlow >= 0 ? 'text-indigo-900 dark:text-indigo-300' : 'text-rose-700'}`}>
+              <div className="p-3 bg-brand-50 dark:bg-brand-950/30 rounded-xl border border-brand-200 dark:border-brand-900/50">
+                <p className="text-[11px] text-brand-700 dark:text-brand-400 font-medium">Flux Net Période</p>
+                <p className={`text-base font-bold mt-0.5 ${periodDetailSummary.netCashFlow >= 0 ? 'text-brand-900 dark:text-brand-300' : 'text-rose-700'}`}>
                   {periodDetailSummary.netCashFlow >= 0 ? '+' : ''}{formatCurrency(periodDetailSummary.netCashFlow)} GNF
                 </p>
               </div>
@@ -866,7 +866,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
             {/* BREAKDOWN BY ACCOUNT */}
             <div>
               <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <DollarSign className="w-4 h-4 text-indigo-500" />
+                <DollarSign className="w-4 h-4 text-brand-500" />
                 Situation par Compte Financier
               </h4>
 
@@ -887,7 +887,7 @@ export const FinancialYearsAndPeriodsView: React.FC<FinancialYearsAndPeriodsView
                         <TableCell className="font-medium text-slate-800 dark:text-slate-100">
                           {acc.name}
                           {acc.isMainCash && (
-                            <span className="ml-1.5 text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">(Caisse Principale)</span>
+                            <span className="ml-1.5 text-[10px] text-brand-600 dark:text-brand-400 font-bold">(Caisse Principale)</span>
                           )}
                         </TableCell>
                         <TableCell>

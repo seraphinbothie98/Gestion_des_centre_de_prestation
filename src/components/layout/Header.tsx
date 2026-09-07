@@ -17,6 +17,7 @@ interface HeaderProps {
   onOpenQuickOrder: () => void;
   onOpenQuickEnrollment: () => void;
   onOpenUserProfile: (tab?: 'INFO' | 'EDIT' | 'PHOTO' | 'SECURITY') => void;
+  onOpenMarketplace?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenQuickOrder,
   onOpenQuickEnrollment,
   onOpenUserProfile,
+  onOpenMarketplace,
 }) => {
   const { currentUser, currentTenant, currentBranch, allBranches, allUsers, switchUser, switchBranch, logout, isSuperAdmin } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
@@ -65,8 +67,19 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
 
-      {/* Right side: Quick Action Button, Role Simulator, Notifications, User Menu */}
+      {/* Right side: Marketplace link, Quick Action Button, Role Simulator, Notifications, User Menu */}
       <div className="flex items-center space-x-2 sm:space-x-3">
+        {onOpenMarketplace && (
+          <button
+            type="button"
+            onClick={onOpenMarketplace}
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 font-bold text-xs border border-amber-500/30 transition-all shadow-xs"
+            title="Voir la Marketplace Publique"
+          >
+            <span>🏪 Marketplace</span>
+          </button>
+        )}
+
         {/* Quick Action Wizard Dropdown (Only for authorized agency roles) */}
         {!isSuperAdmin && (currentUser?.roles[0]?.code === 'ADMIN_CENTRE' || currentUser?.roles[0]?.code === 'CAISSIER') && (
           <div className="relative">
@@ -352,7 +365,7 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={() => onOpenUserProfile('PHOTO')}
                   className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl flex items-center gap-2.5 transition-colors"
                 >
-                  <Camera className="w-4 h-4 text-indigo-500" />
+                  <Camera className="w-4 h-4 text-brand-500" />
                   <span>Photo de profil</span>
                 </button>
 

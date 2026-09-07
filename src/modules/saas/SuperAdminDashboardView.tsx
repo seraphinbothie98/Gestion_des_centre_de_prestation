@@ -708,7 +708,7 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
               </div>
             </Card>
 
-            <Card className="p-5 bg-white dark:bg-slate-900 border-l-4 border-l-cyan-600">
+            <Card className="p-5 bg-white dark:bg-slate-900 border-l-4 border-l-amber-500">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -721,13 +721,13 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
                     {globalMetrics.byActivity.RESTAURANT} Restaurant(s) configuré(s)
                   </span>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center">
                   <Activity className="w-6 h-6" />
                 </div>
               </div>
             </Card>
 
-            <Card className="p-5 bg-white dark:bg-slate-900 border-l-4 border-l-amber-600">
+            <Card className="p-5 bg-white dark:bg-slate-900 border-l-4 border-l-brand-600">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -740,7 +740,7 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
                     dont {globalMetrics.totalAgencyAdmins} Administrateurs d'agence
                   </span>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-brand-50 dark:bg-brand-950/60 text-brand-600 flex items-center justify-center">
                   <Users className="w-6 h-6" />
                 </div>
               </div>
@@ -763,8 +763,8 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
                     <XAxis dataKey="period" stroke="#888888" fontSize={11} />
                     <YAxis stroke="#888888" fontSize={11} tickFormatter={(v) => `${v / 1000}k`} />
                     <Tooltip />
-                    <Area type="monotone" dataKey="agenceA" name="Agence A (CPEP)" stroke="#0c87eb" fill="#0c87eb" fillOpacity={0.2} />
-                    <Area type="monotone" dataKey="agenceB" name="Agence B (Horizon)" stroke="#10b981" fill="#10b981" fillOpacity={0.2} />
+                    <Area type="monotone" dataKey="agenceA" name="Agence A (CPEP)" stroke="#16a34a" fill="#16a34a" fillOpacity={0.2} />
+                    <Area type="monotone" dataKey="agenceB" name="Agence B (Horizon)" stroke="#eab308" fill="#eab308" fillOpacity={0.2} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -804,7 +804,7 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
                   className="w-full justify-start text-xs font-semibold"
                   onClick={() => setActiveTab('audit')}
                 >
-                  <History className="w-4 h-4 mr-2 text-purple-500" /> Consulter l'Audit Global
+                  <History className="w-4 h-4 mr-2 text-amber-500" /> Consulter l'Audit Global
                 </Button>
               </div>
             </Card>
@@ -877,11 +877,11 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
                 onClick={() => setAgencyStatusTab('ARCHIVED')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                   agencyStatusTab === 'ARCHIVED'
-                    ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 shadow-sm'
+                    ? 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                 }`}
               >
-                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                <span className="w-2 h-2 rounded-full bg-slate-500" />
                 Archivées ({agencyCounts.archived})
               </button>
             </div>
@@ -985,7 +985,7 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
 
                         <TableCell>
                           <Badge
-                            variant={isArchived ? 'purple' : isSuspended ? 'danger' : isExpired ? 'warning' : 'success'}
+                            variant={isArchived ? 'secondary' : isSuspended ? 'danger' : isExpired ? 'warning' : 'success'}
                             size="sm"
                             className="font-extrabold text-[10px]"
                           >
@@ -1032,7 +1032,7 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
                                   size="sm"
                                   variant="secondary"
                                   onClick={() => setRestoreAgencyTarget(agency)}
-                                  className="text-xs font-bold py-1 px-2 h-auto text-purple-700 bg-purple-50 hover:bg-purple-100"
+                                  className="text-xs font-bold py-1 px-2 h-auto text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
                                   title="Restaurer l'agence archivée"
                                 >
                                   <RotateCcw className="w-3.5 h-3.5 mr-1" />
@@ -1102,7 +1102,7 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => setArchiveAgencyTarget(agency)}
-                                  className="text-xs p-1.5 h-auto text-slate-600 hover:text-purple-600 hover:bg-purple-50"
+                                  className="text-xs p-1.5 h-auto text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                                   title="Archiver l'agence (Données préservées)"
                                 >
                                   <Archive className="w-3.5 h-3.5" />
@@ -1554,16 +1554,16 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
             </ul>
           </Card>
 
-          <Card className="p-6 border-t-4 border-t-purple-600 space-y-4 bg-white dark:bg-slate-900">
+          <Card className="p-6 border-t-4 border-t-amber-500 space-y-4 bg-white dark:bg-slate-900">
             <div className="flex items-center justify-between">
-              <h4 className="text-base font-black text-purple-600 dark:text-purple-400">ENTERPRISE</h4>
-              <Badge variant="purple" size="sm">Réseaux Multi-Sites</Badge>
+              <h4 className="text-base font-black text-amber-600 dark:text-amber-400">ENTERPRISE</h4>
+              <Badge variant="warning" size="sm">Réseaux Multi-Sites</Badge>
             </div>
             <p className="text-xs text-slate-500">
               Pour les réseaux de succursales, franchises et institutions éducatives.
             </p>
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <strong className="text-2xl font-black text-purple-600 dark:text-purple-400">750 000 GNF</strong>
+              <strong className="text-2xl font-black text-amber-600 dark:text-amber-400">750 000 GNF</strong>
               <span className="text-xs text-slate-400"> / mois</span>
             </div>
             <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300 pt-2">
@@ -1599,7 +1599,7 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
 
             <Card className="p-4">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Volume Global Consolidé</span>
-              <strong className="text-xl font-black text-purple-600 block mt-1">
+              <strong className="text-xl font-black text-amber-600 block mt-1">
                 {formatCurrency(globalMetrics.totalGlobalRevenue)}
               </strong>
             </Card>
@@ -1616,7 +1616,7 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
                   <XAxis dataKey="name" stroke="#888888" fontSize={11} />
                   <YAxis stroke="#888888" fontSize={11} tickFormatter={(v) => `${v / 1000}k`} />
                   <Tooltip />
-                  <Bar dataKey="revenue" name="Chiffre d'Affaires (GNF)" fill="#0c87eb" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="revenue" name="Chiffre d'Affaires (GNF)" fill="#16a34a" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -2297,7 +2297,7 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
                   <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                     {viewAgencyTarget.name}
                     <Badge
-                      variant={viewAgencyTarget.status === 'ARCHIVED' ? 'purple' : viewAgencyTarget.status === 'SUSPENDED' ? 'danger' : 'success'}
+                      variant={viewAgencyTarget.status === 'ARCHIVED' ? 'secondary' : viewAgencyTarget.status === 'SUSPENDED' ? 'danger' : 'success'}
                       size="sm"
                       className="font-black text-[10px]"
                     >
@@ -2614,9 +2614,9 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
           maxWidth="md"
         >
           <div className="space-y-4 pt-1 text-xs">
-            <div className="p-3.5 bg-purple-50 dark:bg-purple-950/40 rounded-2xl border border-purple-200 dark:border-purple-900/60 flex items-start gap-3">
-              <Archive className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
-              <div className="space-y-1 text-purple-950 dark:text-purple-200">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-start gap-3">
+              <Archive className="w-5 h-5 text-slate-600 dark:text-slate-400 shrink-0 mt-0.5" />
+              <div className="space-y-1 text-slate-900 dark:text-slate-200">
                 <strong className="block font-black">Préservation Intégrale des Données :</strong>
                 <p className="leading-relaxed">
                   L'archivage désactive les accès opérationnels de l'agence sans supprimer aucune information. Toutes les ventes, stocks, historiques et factures restent consultables et restaurables à tout moment.
@@ -2640,7 +2640,7 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
               <Button variant="outline" onClick={() => setArchiveAgencyTarget(null)}>
                 Annuler
               </Button>
-              <Button variant="primary" onClick={handleConfirmArchive} className="bg-purple-600 hover:bg-purple-500 font-bold">
+              <Button variant="primary" onClick={handleConfirmArchive} className="bg-slate-800 hover:bg-slate-700 text-white font-bold">
                 Confirmer l'Archivage
               </Button>
             </div>

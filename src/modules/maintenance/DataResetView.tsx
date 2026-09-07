@@ -175,7 +175,7 @@ export const DataResetView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Principle Banner */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-slate-800 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950 border border-slate-800 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="p-1.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
@@ -267,10 +267,10 @@ export const DataResetView: React.FC = () => {
           </Card>
 
           {/* NIVEAU 2 — RÉINITIALISATION COMMERCIALE */}
-          <Card className="p-5 border-blue-200 dark:border-blue-900/50 bg-blue-50/20 dark:bg-blue-950/10 space-y-4 hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between gap-4 pb-3 border-b border-blue-100 dark:border-blue-900/40">
+          <Card className="p-5 border-amber-200 dark:border-amber-900/50 bg-amber-50/20 dark:bg-amber-950/10 space-y-4 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between gap-4 pb-3 border-b border-amber-100 dark:border-amber-900/40">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-900/50 text-amber-600 flex items-center justify-center shrink-0">
                   <ShoppingCart className="w-5 h-5" />
                 </div>
                 <div>
@@ -287,7 +287,7 @@ export const DataResetView: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-blue-200/60 dark:border-blue-900/40 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-amber-200/60 dark:border-amber-900/40 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
                 <span className="text-[11px] text-slate-400 block">Commandes Services</span>
                 <span className="text-base font-extrabold text-slate-900 dark:text-white">{summary.commercial.orders}</span>
@@ -320,7 +320,7 @@ export const DataResetView: React.FC = () => {
               <Button
                 variant="outline"
                 icon={ShoppingCart}
-                className="border-blue-400 text-blue-700 hover:bg-blue-100 dark:border-blue-600 dark:text-blue-300 text-xs shrink-0"
+                className="border-amber-400 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 text-xs shrink-0"
                 onClick={() => handleOpenModal('COMMERCIAL')}
               >
                 Réinitialiser le Pôle Commercial
@@ -506,7 +506,7 @@ export const DataResetView: React.FC = () => {
 
               {/* Special Supplier Debts Management */}
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                <span className="font-extrabold text-slate-800 dark:text-slate-200 block text-[11px] uppercase tracking-wider text-indigo-700 dark:text-indigo-400">
+                <span className="font-extrabold text-slate-800 dark:text-slate-200 block text-[11px] uppercase tracking-wider text-brand-700 dark:text-brand-400">
                   🚚 Gestion Fournisseurs & Achats à Crédit :
                 </span>
                 <div className="space-y-1.5 pl-1">

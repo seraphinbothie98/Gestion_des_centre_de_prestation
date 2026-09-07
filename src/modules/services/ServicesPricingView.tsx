@@ -529,12 +529,12 @@ export const ServicesPricingView: React.FC = () => {
           <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">{state.services.filter(s => s.isActive).length} actifs</p>
         </Card>
 
-        <Card className="p-3 sm:p-4 border-l-4 border-l-purple-500">
+        <Card className="p-3 sm:p-4 border-l-4 border-l-amber-500">
           <div className="flex items-center justify-between">
             <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase">Paliers Volume</span>
-            <TrendingDown className="w-4 h-4 text-purple-500" />
+            <TrendingDown className="w-4 h-4 text-amber-500" />
           </div>
-          <h3 className="text-xl sm:text-2xl font-extrabold text-purple-600 mt-1">
+          <h3 className="text-xl sm:text-2xl font-extrabold text-amber-600 mt-1">
             {state.services.filter(s => s.pricingRules && s.pricingRules.length > 0).length} configurés
           </h3>
           <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Remises automatiques</p>
@@ -681,7 +681,7 @@ export const ServicesPricingView: React.FC = () => {
                               Sans consommable
                             </Badge>
                           ) : mode === 'CLIENT_SUPPLIED' ? (
-                            <Badge variant="purple" size="sm" className="text-[10px]">
+                            <Badge variant="warning" size="sm" className="text-[10px]">
                               Support client
                             </Badge>
                           ) : mode === 'MIXED' ? (
@@ -689,7 +689,7 @@ export const ServicesPricingView: React.FC = () => {
                               Mode Mixte ({consumablesCount})
                             </Badge>
                           ) : mode === 'INTERNAL_FIXED' ? (
-                            <Badge variant="info" size="sm" className="text-[10px]">
+                            <Badge variant="outline" size="sm" className="text-[10px]">
                               Fixe ({consumablesCount} art.)
                             </Badge>
                           ) : (
@@ -708,7 +708,7 @@ export const ServicesPricingView: React.FC = () => {
                       <TableCell>
                         {tiersCount > 0 ? (
                           <div className="space-y-1">
-                            <Badge variant="purple" size="sm">
+                            <Badge variant="warning" size="sm">
                               {tiersCount} tranche{tiersCount > 1 ? 's' : ''} dégressive{tiersCount > 1 ? 's' : ''}
                             </Badge>
                             <div className="text-[10px] text-slate-500 space-x-1">
@@ -753,7 +753,7 @@ export const ServicesPricingView: React.FC = () => {
 
                             <button
                               onClick={() => setServiceForTiers(srv)}
-                              className="p-1.5 text-slate-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-lg transition-colors"
+                              className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition-colors"
                               title="Gérer les paliers dégressifs"
                             >
                               <TrendingDown className="w-4 h-4" />
@@ -761,7 +761,7 @@ export const ServicesPricingView: React.FC = () => {
 
                             <button
                               onClick={() => setServiceForHistory(srv)}
-                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors"
+                              className="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/40 rounded-lg transition-colors"
                               title="Historique des prix"
                             >
                               <History className="w-4 h-4" />
@@ -826,18 +826,18 @@ export const ServicesPricingView: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 block">Paliers Dégressifs</span>
-                      <span className="font-semibold text-purple-600 text-xs">
+                      <span className="font-semibold text-amber-600 text-xs">
                         {tiersCount > 0 ? `${tiersCount} paliers actifs` : 'Tarif unique'}
                       </span>
                     </div>
                   </div>
 
                   {tiersCount > 0 && (
-                    <div className="space-y-1 text-[11px] bg-purple-50 dark:bg-purple-950/30 p-2 rounded-lg text-purple-900 dark:text-purple-200">
+                    <div className="space-y-1 text-[11px] bg-amber-50 dark:bg-amber-950/30 p-2 rounded-lg text-amber-900 dark:text-amber-200">
                       <span className="font-bold block text-[10px] uppercase">Grille Volume :</span>
                       <div className="flex flex-wrap gap-1">
                         {srv.pricingRules.map(r => (
-                          <span key={r.id} className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded text-[10px] border border-purple-200">
+                          <span key={r.id} className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded text-[10px] border border-amber-200">
                             {r.minQuantity}{r.maxQuantity ? `-${r.maxQuantity}` : '+'}: <strong>{formatCurrency(r.unitPrice)}</strong>
                           </span>
                         ))}
@@ -867,7 +867,7 @@ export const ServicesPricingView: React.FC = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="min-h-[40px] text-purple-600"
+                        className="min-h-[40px] text-amber-600"
                         onClick={() => setServiceForTiers(srv)}
                       >
                         <TrendingDown className="w-3.5 h-3.5 mr-1" /> Paliers
@@ -1021,7 +1021,7 @@ export const ServicesPricingView: React.FC = () => {
                   </TableCell>
 
                   <TableCell>
-                    <span className="text-xs font-bold text-purple-600">
+                    <span className="text-xs font-bold text-amber-600">
                       {formatCurrency(da.appliedPrice)} / {da.unit}
                     </span>
                     <span className="text-[10px] text-slate-900 dark:text-white font-bold block">
@@ -1030,7 +1030,7 @@ export const ServicesPricingView: React.FC = () => {
                   </TableCell>
 
                   <TableCell>
-                    <Badge variant={da.discountType === 'TIER' ? 'purple' : 'warning'} size="sm">
+                    <Badge variant={da.discountType === 'TIER' ? 'warning' : 'warning'} size="sm">
                       -{formatCurrency(da.discountAmount)} (-{da.discountPercent}%)
                     </Badge>
                   </TableCell>
@@ -1100,10 +1100,10 @@ export const ServicesPricingView: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-2xl border border-purple-200 space-y-1">
-                <span className="font-extrabold text-sm text-purple-900 dark:text-purple-200 block">Paliers Quantitatifs Automatiques</span>
-                <span className="text-2xl font-black text-purple-600">{discountStats.tierCount} transactions</span>
-                <p className="text-xs text-purple-700 dark:text-purple-300">Appliqués automatiquement selon les volumes de tirage</p>
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-2xl border border-amber-200 space-y-1">
+                <span className="font-extrabold text-sm text-amber-900 dark:text-amber-200 block">Paliers Quantitatifs Automatiques</span>
+                <span className="text-2xl font-black text-amber-600">{discountStats.tierCount} transactions</span>
+                <p className="text-xs text-amber-700 dark:text-amber-300">Appliqués automatiquement selon les volumes de tirage</p>
               </div>
 
               <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-2xl border border-amber-200 space-y-1">
@@ -1326,8 +1326,8 @@ export const ServicesPricingView: React.FC = () => {
               onChange={(e) => setEditDescription(e.target.value)}
             />
 
-            <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2">
-              <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] text-slate-800 dark:text-slate-200 flex items-start gap-2">
+              <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
               <span>
                 <strong>Garantie de non-rétroactivité :</strong> Les anciennes commandes et factures conservent automatiquement leur prix d'origine ({formatCurrency(serviceToEdit.basePrice)}).
               </span>
@@ -1356,7 +1356,7 @@ export const ServicesPricingView: React.FC = () => {
           maxWidth="lg"
         >
           <div className="space-y-4 pt-1">
-            <div className="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-200 text-xs text-purple-900 dark:text-purple-200">
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 text-xs text-amber-900 dark:text-amber-200">
               <span>Tarif de base standard : <strong>{formatCurrency(serviceForTiers.basePrice)} / {serviceForTiers.unit}</strong>. Les remises de volume s'appliquent automatiquement aux commandes.</span>
             </div>
 
@@ -1376,7 +1376,7 @@ export const ServicesPricingView: React.FC = () => {
                         <span className="text-[11px] text-slate-400 block">Profil : {rule.customerType}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-extrabold text-sm text-purple-600">
+                        <span className="font-extrabold text-sm text-amber-600">
                           {formatCurrency(rule.unitPrice)} / {serviceForTiers.unit}
                         </span>
                         <button

@@ -394,7 +394,7 @@ export const LicenseManagementView: React.FC = () => {
                   {subEval.status === 'ACTIVE' ? '🟢 LICENCE ACTIVE' : subEval.status === 'TRIAL' ? '🟠 PÉRIODE D\'ESSAI' : '🔴 EXPIRÉE'}
                 </Badge>
                 {targetAgency?.licensePlan ? (
-                  <Badge variant="purple" size="md" className="font-black uppercase text-xs">
+                  <Badge variant="warning" size="md" className="font-black uppercase text-xs">
                     ⭐ FORMULE {targetAgency.licensePlan}
                   </Badge>
                 ) : (
@@ -569,7 +569,7 @@ export const LicenseManagementView: React.FC = () => {
                 </div>
 
                 <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-3">
-                  <Building className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <Building className="w-4 h-4 text-brand-500 shrink-0" />
                   <div>
                     <span className="text-[10px] text-slate-400 uppercase font-bold block">Direction</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200">{supportContact.name}</span>
@@ -1058,7 +1058,7 @@ export const LicenseManagementView: React.FC = () => {
                             : evt.action === 'ACCOUNT_SUSPENDED'
                             ? 'danger'
                             : evt.action === 'ACCOUNT_REACTIVATED'
-                            ? 'purple'
+                            ? 'success'
                             : 'warning'
                         }
                         size="sm"

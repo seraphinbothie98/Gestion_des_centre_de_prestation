@@ -270,7 +270,7 @@ const ProductActionsDropdown: React.FC<{
                 }}
                 className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition-colors"
               >
-                <Calculator className="w-4 h-4 text-indigo-500" />
+                <Calculator className="w-4 h-4 text-brand-600" />
                 <span>⚡ Ajuster le stock</span>
               </button>
 
@@ -1858,12 +1858,12 @@ export const StockView: React.FC = () => {
           <p className="text-[10px] text-slate-400 mt-0.5">Stock épuisé (0 unité)</p>
         </Card>
 
-        <Card className="p-4 border-l-4 border-l-indigo-500">
+        <Card className="p-4 border-l-4 border-l-amber-500">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase">Catégories Actives</span>
-            <FolderTree className="w-4 h-4 text-indigo-500" />
+            <FolderTree className="w-4 h-4 text-amber-500" />
           </div>
-          <h3 className="text-lg font-extrabold text-indigo-600 mt-1">
+          <h3 className="text-lg font-extrabold text-amber-600 mt-1">
             {metrics.totalCategoriesCount}
           </h3>
           <p className="text-[10px] text-slate-400 mt-0.5">
@@ -2461,23 +2461,23 @@ export const StockView: React.FC = () => {
               <p className="text-[10px] text-slate-400 mt-0.5">0 unité disponible</p>
             </Card>
 
-            <Card className="p-3.5 border-l-4 border-l-indigo-500 bg-gradient-to-br from-white to-indigo-50/20 dark:from-slate-900 dark:to-slate-800">
+            <Card className="p-3.5 border-l-4 border-l-brand-500 bg-gradient-to-br from-white to-brand-50/20 dark:from-slate-900 dark:to-slate-800">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Transferts Reçus</span>
-                <ArrowLeftRight className="w-4 h-4 text-indigo-500" />
+                <ArrowLeftRight className="w-4 h-4 text-brand-500" />
               </div>
-              <h3 className="text-xl font-black text-indigo-600 mt-1">
+              <h3 className="text-xl font-black text-brand-600 mt-1">
                 {prestationMetrics.recentTransfersCount}
               </h3>
               <p className="text-[10px] text-slate-400 mt-0.5">Mouvements magasin → atelier</p>
             </Card>
 
-            <Card className="p-3.5 border-l-4 border-l-purple-500 bg-gradient-to-br from-white to-purple-50/20 dark:from-slate-900 dark:to-slate-800">
+            <Card className="p-3.5 border-l-4 border-l-amber-500 bg-gradient-to-br from-white to-amber-50/20 dark:from-slate-900 dark:to-slate-800">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Consommations</span>
-                <Wrench className="w-4 h-4 text-purple-500" />
+                <Wrench className="w-4 h-4 text-amber-500" />
               </div>
-              <h3 className="text-xl font-black text-purple-600 mt-1">
+              <h3 className="text-xl font-black text-amber-600 mt-1">
                 {prestationMetrics.recentConsumptionsCount}
               </h3>
               <p className="text-[10px] text-slate-400 mt-0.5">Prestations réalisées</p>
@@ -4059,7 +4059,7 @@ export const StockView: React.FC = () => {
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center">
+                            <span className="w-5 h-5 rounded-full bg-brand-600 text-white text-[10px] font-black flex items-center justify-center">
                               {idx + 2}
                             </span>
                             <strong className="text-xs text-slate-900 dark:text-white capitalize">
@@ -4208,7 +4208,7 @@ export const StockView: React.FC = () => {
             {/* SECTION C: PARAMÈTRES DE STOCK & EMPLACEMENT */}
             <div className="space-y-3 pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5 text-indigo-600">
+                <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5 text-brand-600">
                   <Boxes className="w-4 h-4" />
                   Section C — Paramètres de Stock (Exprimés en {newBaseUnit}s)
                 </h4>
@@ -4632,7 +4632,7 @@ export const StockView: React.FC = () => {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center">
+                          <span className="w-5 h-5 rounded-full bg-brand-600 text-white text-[10px] font-black flex items-center justify-center">
                             {idx + 2}
                           </span>
                           <strong className="text-xs text-slate-900 dark:text-white capitalize">
@@ -4973,7 +4973,7 @@ export const StockView: React.FC = () => {
 
               <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-1.5">
                 <h5 className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                  <MapPin className="w-3.5 h-3.5 text-brand-600" />
                   Localisation & Fournisseur
                 </h5>
                 <p className="text-slate-700 dark:text-slate-300">
@@ -5734,10 +5734,10 @@ export const StockView: React.FC = () => {
               </div>
 
               {/* Stock Magasin Réserve */}
-              <div className="p-3.5 bg-gradient-to-br from-slate-50 to-indigo-50/40 dark:from-slate-900 dark:to-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+              <div className="p-3.5 bg-gradient-to-br from-slate-50 to-brand-50/20 dark:from-slate-900 dark:to-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <Boxes className="w-4 h-4 text-indigo-500" />
+                    <Boxes className="w-4 h-4 text-brand-500" />
                     Réserve Stock Magasin
                   </span>
                   {productToViewPrestation.currentStock <= 0 ? (
