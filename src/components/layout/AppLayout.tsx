@@ -29,6 +29,8 @@ import { SettingsView } from '../../modules/settings/SettingsView';
 import { LicenseManagementView } from '../../modules/license/LicenseManagementView';
 import { TrialExpiredScreen } from '../../modules/license/TrialExpiredScreen';
 import { SuperAdminDashboardView } from '../../modules/saas/SuperAdminDashboardView';
+import { BoutiqueMessagingView } from '../../modules/boutique/BoutiqueMessagingView';
+import { AdminStoresVerificationView } from '../../modules/saas/AdminStoresVerificationView';
 
 import { useAuth } from '../../context/AuthContext';
 import { evaluateTenantSubscription } from '../../lib/licenseEngine';
@@ -46,7 +48,8 @@ const VALID_SECTIONS: NavSection[] = [
   'dashboard', 'persons', 'orders', 'boutique', 'production',
   'equipment', 'services-pricing', 'training', 'payments', 'cash',
   'stock', 'suppliers', 'billing', 'reports', 'notifications',
-  'users-rbac', 'audit', 'settings', 'licenses', 'saas-superadmin'
+  'users-rbac', 'audit', 'settings', 'licenses', 'saas-superadmin',
+  'marketplace-messaging', 'stores-verification'
 ];
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ 
@@ -219,6 +222,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         return <SettingsView />;
       case 'licenses':
         return <LicenseManagementView />;
+      case 'marketplace-messaging':
+        return <BoutiqueMessagingView />;
+      case 'stores-verification':
+        return <AdminStoresVerificationView />;
       case 'saas-superadmin':
         return <SuperAdminDashboardView onNavigateToAgency={() => handleNavigate('dashboard')} />;
       default:

@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { AppNotification } from '../types';
 import { dbStore } from '../server/db/mockStore';
+import { useAuth } from './AuthContext';
 
 interface Toast {
   id: string;
@@ -22,15 +23,22 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [notifications, setNotifications] = useState<AppNotification[]>(dbStore.getState().notifications);
+  const { currentTenant, currentUser, isSuperAdmin } = useAuth();
+  const [storeState, setStoreState] = useState(() => dbStore.getState());
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   useEffect(() => {
     return dbStore.subscribe(() => {
-      const state = dbStore.getState();
-      setNotifications([...state.notifications]);
+      setStoreState({ ...dbStore.getState() });
     });
   }, []);
+
+  const effectiveTenantId = currentTenant?.id;
+
+  // Strict tenant & user isolation for notifications
+  const notifications = useMemo<AppNotification[]>(() => {
+    return dbStore.getTenantNotifications(effectiveTenantId, currentUser?.id, isSuperAdmin);
+  }, [storeState, effectiveTenantId, currentUser?.id, isSuperAdmin]);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -44,7 +52,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const markAllAsRead = () => {
     dbStore.updateState(draft => {
       draft.notifications.forEach(n => {
-        n.isRead = true;
+        // Only mark notifications scoped to current tenant/user as read
+        if (
+          isSuperAdmin ||
+          (effectiveTenantId && (n.tenantId === effectiveTenantId || n.boutiqueId === effectiveTenantId)) ||
+          (currentUser?.id && n.userId === currentUser.id)
+        ) {
+          n.isRead = true;
+        }
       });
     });
   };
@@ -116,3 +131,4 @@ export const useNotification = () => {
   }
   return context;
 };
+

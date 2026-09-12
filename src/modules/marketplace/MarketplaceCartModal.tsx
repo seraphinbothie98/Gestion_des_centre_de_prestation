@@ -1,37 +1,63 @@
 import React, { useState } from 'react';
 import { 
   X, ShoppingBag, Trash2, Store, MapPin, 
-  ArrowRight, ShieldCheck, CheckCircle2, Truck, AlertCircle, Phone
+  ArrowRight, ShieldCheck, CheckCircle2, Truck, AlertCircle, Phone, Package
 } from 'lucide-react';
 import { MarketplaceCartItem, MarketplaceStoreOrderGroup, GuineanCity } from './types';
 import { GUINEAN_CITIES } from './MarketplaceHeader';
+import { dbStore } from '../../server/db/mockStore';
+import { User } from '../../types';
 
 interface MarketplaceCartModalProps {
   items: MarketplaceCartItem[];
   currentCity: GuineanCity;
+  currentUser?: User | null;
+  onRequireAuth?: (actionDesc: string, callback: (user: User) => void) => void;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onClearCart: () => void;
   onCheckoutSuccess: (ordersCreated: { storeId: string; storeName: string; orderNumber: string; totalAmount: number }[]) => void;
+  onOpenOrders?: () => void;
   onClose: () => void;
 }
 
 export const MarketplaceCartModal: React.FC<MarketplaceCartModalProps> = ({
   items,
   currentCity,
+  currentUser,
+  onRequireAuth,
   onUpdateQuantity,
   onRemoveItem,
   onClearCart,
   onCheckoutSuccess,
+  onOpenOrders,
   onClose
 }) => {
   const [step, setStep] = useState<'CART' | 'CHECKOUT' | 'SUCCESS'>('CART');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [deliveryCity, setDeliveryCity] = useState<GuineanCity>(currentCity);
-  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [customerName, setCustomerName] = useState(() => {
+    return currentUser ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : '';
+  });
+  const [customerPhone, setCustomerPhone] = useState(() => {
+    return currentUser?.phone || '';
+  });
+  const [deliveryCity, setDeliveryCity] = useState<GuineanCity>(() => {
+    return (currentUser?.city as GuineanCity) || currentCity;
+  });
+  const [deliveryAddress, setDeliveryAddress] = useState(() => {
+    return currentUser?.address || '';
+  });
   const [orderNotes, setOrderNotes] = useState('');
   const [createdOrders, setCreatedOrders] = useState<{ storeId: string; storeName: string; orderNumber: string; totalAmount: number }[]>([]);
+
+  // Keep state in sync if currentUser logs in
+  React.useEffect(() => {
+    if (currentUser) {
+      if (!customerName) setCustomerName(`${currentUser.firstName} ${currentUser.lastName || ''}`.trim());
+      if (!customerPhone && currentUser.phone) setCustomerPhone(currentUser.phone);
+      if (currentUser.city) setDeliveryCity(currentUser.city as GuineanCity);
+      if (!deliveryAddress && currentUser.address) setDeliveryAddress(currentUser.address);
+    }
+  }, [currentUser]);
 
   // Group cart items by store
   const storeGroups: MarketplaceStoreOrderGroup[] = items.reduce((acc, item) => {
@@ -40,7 +66,7 @@ export const MarketplaceCartModal: React.FC<MarketplaceCartModalProps> = ({
       group = {
         storeId: item.storeId,
         storeName: item.storeName,
-        storeCity: item.storeCity,
+        storeCity: item.storeCity || 'Conakry',
         items: [],
         subtotal: 0
       };
@@ -53,28 +79,57 @@ export const MarketplaceCartModal: React.FC<MarketplaceCartModalProps> = ({
 
   const grandTotal = storeGroups.reduce((sum, g) => sum + g.subtotal, 0);
 
+  const handleProceedToCheckout = () => {
+    if (!currentUser && onRequireAuth) {
+      onRequireAuth('finaliser votre commande', (user) => {
+        setCustomerName(`${user.firstName} ${user.lastName || ''}`.trim());
+        setCustomerPhone(user.phone || '');
+        if (user.city) setDeliveryCity(user.city as GuineanCity);
+        if (user.address) setDeliveryAddress(user.address);
+        setStep('CHECKOUT');
+      });
+      return;
+    }
+    setStep('CHECKOUT');
+  };
+
   const handleConfirmCheckout = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!customerName.trim() || !customerPhone.trim()) {
-      alert("Veuillez renseigner votre nom et votre numéro de téléphone.");
+    if (!customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim()) {
+      alert("Veuillez renseigner votre nom, téléphone et adresse de livraison.");
       return;
     }
 
-    // Generate separate orders for each store
-    const orders = storeGroups.map((group) => {
-      const randomSeq = Math.floor(1000 + Math.random() * 9000);
-      const orderNumber = `CMD-BTQ-${new Date().getFullYear()}-${randomSeq}`;
+    // Call real dbStore to create orders separated by store
+    const result = dbStore.createMarketplaceOrders({
+      items,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      customerEmail: currentUser?.email,
+      customerId: currentUser?.id,
+      deliveryCity: deliveryCity,
+      deliveryAddress: deliveryAddress.trim(),
+      orderNotes: orderNotes.trim() || undefined
+    });
+
+    if (!result.success || result.createdOrders.length === 0) {
+      alert(result.error || "Erreur lors de la validation de la commande.");
+      return;
+    }
+
+    const ordersInfo = result.createdOrders.map((ord) => {
+      const group = storeGroups.find(g => g.storeId === ord.tenantId);
       return {
-        storeId: group.storeId,
-        storeName: group.storeName,
-        orderNumber,
-        totalAmount: group.subtotal
+        storeId: ord.tenantId,
+        storeName: group?.storeName || 'Boutique',
+        orderNumber: ord.orderNumber,
+        totalAmount: ord.totalAmount
       };
     });
 
-    setCreatedOrders(orders);
-    onCheckoutSuccess(orders);
+    setCreatedOrders(ordersInfo);
+    onCheckoutSuccess(ordersInfo);
     onClearCart();
     setStep('SUCCESS');
   };
@@ -163,12 +218,16 @@ export const MarketplaceCartModal: React.FC<MarketplaceCartModalProps> = ({
                         {group.items.map((item) => (
                           <div key={item.productId} className="p-3 flex items-center justify-between gap-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 overflow-hidden shrink-0">
-                                <img 
-                                  src={item.imageUrl || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=150&auto=format&fit=crop&q=80'} 
-                                  alt="" 
-                                  className="w-full h-full object-cover" 
-                                />
+                              <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 overflow-hidden shrink-0 flex items-center justify-center">
+                                {item.imageUrl ? (
+                                  <img 
+                                    src={item.imageUrl} 
+                                    alt="" 
+                                    className="w-full h-full object-cover" 
+                                  />
+                                ) : (
+                                  <Package className="w-6 h-6 text-slate-600" />
+                                )}
                               </div>
                               <div>
                                 <h5 className="text-xs font-bold text-white line-clamp-1">{item.productName}</h5>
@@ -248,8 +307,8 @@ export const MarketplaceCartModal: React.FC<MarketplaceCartModalProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => setStep('CHECKOUT')}
-                      className="flex-1 sm:flex-none py-3 px-7 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs shadow-lg shadow-red-600/30 flex items-center justify-center gap-2 transition-all"
+                      onClick={handleProceedToCheckout}
+                      className="flex-1 sm:flex-none py-3 px-7 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs shadow-lg shadow-red-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
                     >
                       <span>Passer la commande</span>
                       <ArrowRight className="w-4 h-4" />
@@ -399,12 +458,25 @@ export const MarketplaceCartModal: React.FC<MarketplaceCartModalProps> = ({
               ))}
             </div>
 
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              {onOpenOrders && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenOrders();
+                  }}
+                  className="w-full sm:w-auto py-3 px-6 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-slate-950 text-xs font-black shadow-lg shadow-yellow-400/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Package className="w-4 h-4" />
+                  <span>Suivre ma commande en direct</span>
+                </button>
+              )}
+
               <button
                 onClick={onClose}
-                className="py-3 px-8 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black shadow-lg shadow-red-600/30 transition-all"
+                className="w-full sm:w-auto py-3 px-6 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all cursor-pointer"
               >
-                Terminer et retourner à la Marketplace
+                Retourner à la Marketplace
               </button>
             </div>
           </div>

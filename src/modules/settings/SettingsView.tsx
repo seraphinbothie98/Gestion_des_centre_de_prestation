@@ -10,20 +10,22 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { BrandingSettingsView } from './BrandingSettingsView';
 import { SignaturesSettingsView } from './SignaturesSettingsView';
+import { BoutiqueCategoriesManager } from '../boutique/BoutiqueCategoriesManager';
 import { DataResetView } from '../maintenance/DataResetView';
-import { Settings, Building, Save, RefreshCw, Layout, Award, MapPin, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Settings, Building, Save, RefreshCw, Layout, Award, MapPin, ShieldAlert, ShieldCheck, Tag } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const { currentTenant, hasPermission } = useAuth();
   const { showToast } = useNotification();
   const state = dbStore.getState();
 
-  const [activeTab, setActiveTab] = useState<'branding' | 'signatures' | 'general' | 'branches' | 'maintenance'>('branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'signatures' | 'general' | 'categories' | 'branches' | 'maintenance'>('branding');
 
   const [centreName, setCentreName] = useState(currentTenant?.name || '');
   const [centrePhone, setCentrePhone] = useState(currentTenant?.phone || '');
   const [centreEmail, setCentreEmail] = useState(currentTenant?.email || '');
   const [centreAddress, setCentreAddress] = useState(currentTenant?.address || '');
+  const [centreCity, setCentreCity] = useState(currentTenant?.city || 'Conakry');
   const [companyHeader, setCompanyHeader] = useState(currentTenant?.settings?.companyHeader || '');
   const [invoiceFooter, setInvoiceFooter] = useState(currentTenant?.settings?.invoiceFooter || '');
 
@@ -33,9 +35,10 @@ export const SettingsView: React.FC = () => {
     setCentrePhone(currentTenant?.phone || '');
     setCentreEmail(currentTenant?.email || '');
     setCentreAddress(currentTenant?.address || '');
+    setCentreCity(currentTenant?.city || 'Conakry');
     setCompanyHeader(currentTenant?.settings?.companyHeader || '');
     setInvoiceFooter(currentTenant?.settings?.invoiceFooter || '');
-  }, [currentTenant?.id, currentTenant?.name, currentTenant?.phone, currentTenant?.email, currentTenant?.address]);
+  }, [currentTenant?.id, currentTenant?.name, currentTenant?.phone, currentTenant?.email, currentTenant?.address, currentTenant?.city]);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +54,7 @@ export const SettingsView: React.FC = () => {
         tenant.phone = centrePhone;
         tenant.email = centreEmail;
         tenant.address = centreAddress;
+        tenant.city = centreCity;
         tenant.settings = {
           ...tenant.settings,
           companyHeader,
@@ -59,8 +63,8 @@ export const SettingsView: React.FC = () => {
       }
     });
 
-    dbStore.logAudit('SETTINGS_UPDATED', 'TENANT', currentTenant?.id, null, { centreName });
-    showToast('Paramètres Enregistrés', 'Les informations du centre ont été mises à jour.', 'SUCCESS');
+    dbStore.logAudit('SETTINGS_UPDATED', 'TENANT', currentTenant?.id, null, { centreName, centreCity });
+    showToast('Paramètres Enregistrés', 'Les informations du centre et la ville ont été mises à jour.', 'SUCCESS');
   };
 
   const handleResetDemoData = () => {
@@ -80,7 +84,7 @@ export const SettingsView: React.FC = () => {
             Administration & Configuration du Centre
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Personnalisation de l'identité visuelle, signatures & cachet officiel, coordonnées légales, agences et maintenance système.
+            Personnalisation de l'identité visuelle, signatures & cachet officiel, coordonnées légales, ville, catégories et maintenance système.
           </p>
         </div>
         <Button variant="outline" icon={RefreshCw} onClick={handleResetDemoData}>
@@ -94,6 +98,7 @@ export const SettingsView: React.FC = () => {
           { id: 'branding', label: 'Identité Visuelle & Logo', icon: Layout },
           { id: 'signatures', label: 'Signatures & Cachet Officiel', icon: ShieldCheck },
           { id: 'general', label: 'Paramètres Généraux', icon: Building },
+          { id: 'categories', label: 'Catégories Marketplace', icon: Tag },
           { id: 'branches', label: 'Agences & Annexes', icon: MapPin },
           { id: 'maintenance', label: 'Maintenance & Reset', icon: ShieldAlert },
         ]}
@@ -107,14 +112,14 @@ export const SettingsView: React.FC = () => {
       {/* TAB 2: SIGNATURES & CACHET OFFICIEL */}
       {activeTab === 'signatures' && <SignaturesSettingsView key={currentTenant?.id} />}
 
-      {/* TAB 2: PARAMÈTRES GÉNÉRAUX */}
+      {/* TAB 3: PARAMÈTRES GÉNÉRAUX */}
       {activeTab === 'general' && (
         <form onSubmit={handleSaveSettings} className="space-y-6">
           <Card className="p-6 space-y-4">
             <CardHeader className="p-0 pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Building className="w-4 h-4 text-brand-500" />
-                Coordonnées & Informations Légales
+                Coordonnées, Ville & Informations Légales
               </CardTitle>
             </CardHeader>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -136,10 +141,36 @@ export const SettingsView: React.FC = () => {
                 onChange={(e) => setCentreEmail(e.target.value)}
               />
               <Input
-                label="Adresse physique"
+                label="Adresse physique (Commune / Quartier)"
                 value={centreAddress}
                 onChange={(e) => setCentreAddress(e.target.value)}
               />
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
+                  📍 Ville de la boutique / agence
+                </label>
+                <select
+                  value={centreCity}
+                  onChange={(e) => setCentreCity(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option value="Conakry">Conakry</option>
+                  <option value="Kindia">Kindia</option>
+                  <option value="Boké">Boké</option>
+                  <option value="Mamou">Mamou</option>
+                  <option value="Labé">Labé</option>
+                  <option value="Kankan">Kankan</option>
+                  <option value="N'Zérékoré">N'Zérékoré</option>
+                  <option value="Siguiri">Siguiri</option>
+                  <option value="Kissidougou">Kissidougou</option>
+                  <option value="Coyah">Coyah</option>
+                  <option value="Dubréka">Dubréka</option>
+                  <option value="Autre ville">Autre ville</option>
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Tous vos produits sur le Marketplace afficheront automatiquement cette ville de disponibilité.
+                </p>
+              </div>
             </div>
             <Input
               label="En-tête fiscale (RCCM, NIF...)"
@@ -160,6 +191,9 @@ export const SettingsView: React.FC = () => {
           </div>
         </form>
       )}
+
+      {/* TAB 4: CATÉGORIES MARKETPLACE */}
+      {activeTab === 'categories' && <BoutiqueCategoriesManager key={currentTenant?.id} />}
 
       {/* TAB 3: AGENCES */}
       {activeTab === 'branches' && (

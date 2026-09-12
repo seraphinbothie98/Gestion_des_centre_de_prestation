@@ -1,5 +1,5 @@
 // ==============================================================================
-// CMS MARKETPLACE - TYPESCRIPT DEFINITIONS
+// CMS MARKETPLACE - TYPESCRIPT DEFINITIONS (GUINÉE BOUTIQUES)
 // Multi-Store Public Marketplace for Guinea (Conakry & Interior Cities)
 // ==============================================================================
 
@@ -74,6 +74,7 @@ export interface MarketplaceConversation {
   storeName: string;
   storeCity: string;
   storeLogoUrl?: string;
+  isStoreOnline?: boolean;
   customerId: string;
   customerName: string;
   customerPhone?: string;
@@ -81,6 +82,8 @@ export interface MarketplaceConversation {
   productId?: string;
   productName?: string;
   productImageUrl?: string;
+  productPrice?: number;
+  productPublicUnit?: string;
   orderId?: string;
   orderNumber?: string;
   lastMessageText: string;
@@ -96,13 +99,17 @@ export interface MarketplaceCartItem {
   productName: string;
   productCode: string;
   imageUrl?: string;
+  images?: string[];
   storeId: string; // tenantId
   storeName: string;
   storeCity: string;
   storeCommune?: string;
-  unitPrice: number;
+  isStoreOnline?: boolean;
+  unitPrice: number; // Public price
   quantity: number;
-  unit: string;
+  unit: string; // Public selling unit (e.g. "Carton", "Paquet", "Sac 50kg")
+  internalStockUnit?: string; // e.g. "Feuille", "Unité"
+  conversionFactorToStockUnit?: number; // e.g. 500
   maxStock: number;
 }
 
@@ -111,8 +118,54 @@ export interface MarketplaceStoreOrderGroup {
   storeName: string;
   storeCity: string;
   storePhone?: string;
+  isStoreOnline?: boolean;
   items: MarketplaceCartItem[];
   subtotal: number;
   estimatedDeliveryFee?: number;
   deliveryNotes?: string;
+  generatedOrderNumber?: string;
+}
+
+export interface MarketplaceOrderSplitResult {
+  overallSuccess: boolean;
+  totalAmount: number;
+  customerName: string;
+  customerPhone: string;
+  customerCity: GuineanCity;
+  customerAddress: string;
+  subOrders: {
+    orderNumber: string;
+    storeId: string;
+    storeName: string;
+    storeCity: string;
+    itemsCount: number;
+    subtotal: number;
+    deliveryFee: number;
+    total: number;
+    items: MarketplaceCartItem[];
+    createdAt: string;
+  }[];
+}
+
+export interface MarketplaceLiveSession {
+  id: string;
+  storeId: string;
+  storeName: string;
+  storeCity: string;
+  storeLogoUrl?: string;
+  title: string;
+  description?: string;
+  streamVideoUrl?: string;
+  viewerCount: number;
+  startedAt: string;
+  isActive: boolean;
+  featuredProductIds: string[];
+  comments: {
+    id: string;
+    userName: string;
+    userCity?: string;
+    message: string;
+    timestamp: string;
+    isSeller?: boolean;
+  }[];
 }

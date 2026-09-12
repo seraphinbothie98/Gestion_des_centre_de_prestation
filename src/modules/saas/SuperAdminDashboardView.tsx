@@ -26,14 +26,17 @@ import {
   Building, DollarSign, Activity, Eye, Sparkles, ExternalLink,
   Crown, UserCheck, Shield, History, Settings, CreditCard, BarChart3,
   Sliders, Globe, Filter, Check, HelpCircle, Archive, RotateCcw,
-  Trash2, Edit, Download, FileText, Layers, Info, Calendar, X
+  Trash2, Edit, Download, FileText, Layers, Info, Calendar, X, BadgeCheck, Power
 } from 'lucide-react';
+import { AdminStoresVerificationView } from './AdminStoresVerificationView';
 
 export type SuperAdminTab =
   | 'dashboard'
   | 'agencies'
+  | 'stores-verification'
   | 'agency-admins'
   | 'global-users'
+  | 'clients'
   | 'licenses'
   | 'plans'
   | 'stats'
@@ -61,6 +64,12 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
   const [userSearch, setUserSearch] = useState('');
   const [userAgencyFilter, setUserAgencyFilter] = useState<string>('ALL');
   const [userRoleFilter, setUserRoleFilter] = useState<string>('ALL');
+
+  // Global Clients Module States
+  const [clientSubTab, setClientSubTab] = useState<'ALL' | 'MARKETPLACE' | 'STORE_REGISTERED' | 'MULTI_STORE' | 'RECENT' | 'SUSPENDED'>('ALL');
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientOriginFilter, setClientOriginFilter] = useState<'ALL' | 'MARKETPLACE' | 'STORE_REGISTERED'>('ALL');
+  const [selectedClientForView, setSelectedClientForView] = useState<any | null>(null);
 
   const [auditSearch, setAuditSearch] = useState('');
   const [auditAgencyFilter, setAuditAgencyFilter] = useState<string>('ALL');
@@ -184,6 +193,76 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
       revenueByAgency
     };
   }, [state]);
+
+  // Global Clients Data for Super Admin Module
+  const allPlatformClients = useMemo(() => {
+    let filterOrigin: 'ALL' | 'MARKETPLACE' | 'STORE_REGISTERED' | undefined = undefined;
+    let filterStatus: 'ALL' | 'ACTIVE' | 'SUSPENDED' | undefined = undefined;
+    let multiStoreOnly = false;
+
+    if (clientSubTab === 'MARKETPLACE') filterOrigin = 'MARKETPLACE';
+    else if (clientSubTab === 'STORE_REGISTERED') filterOrigin = 'STORE_REGISTERED';
+    else if (clientSubTab === 'MULTI_STORE') multiStoreOnly = true;
+    else if (clientSubTab === 'SUSPENDED') filterStatus = 'SUSPENDED';
+
+    if (clientOriginFilter !== 'ALL') filterOrigin = clientOriginFilter;
+
+    let list = dbStore.getAllPlatformClients({
+      origin: filterOrigin,
+      status: filterStatus,
+      multiStoreOnly,
+      search: clientSearch
+    });
+
+    if (clientSubTab === 'RECENT') {
+      list = [...list].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    }
+
+    return list;
+  }, [state.persons, state.users, state.clientStoreRelations, state.orders, state.boutiqueSales, state.tenants, clientSubTab, clientOriginFilter, clientSearch]);
+
+  const clientMetrics = useMemo(() => {
+    const rawList = dbStore.getAllPlatformClients();
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const sevenDaysAgo = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+    const total = rawList.length;
+    const marketplaceCount = rawList.filter(c => c.origin === 'MARKETPLACE').length;
+    const storeRegisteredCount = rawList.filter(c => c.origin === 'STORE_REGISTERED' || Boolean(c.registeredByTenantId && c.registeredByTenantId !== 'MARKETPLACE')).length;
+    
+    const todayCount = rawList.filter(c => {
+      const d = c.createdAt ? new Date(c.createdAt).getTime() : 0;
+      return d >= startOfToday;
+    }).length;
+
+    const weekCount = rawList.filter(c => {
+      const d = c.createdAt ? new Date(c.createdAt).getTime() : 0;
+      return d >= sevenDaysAgo;
+    }).length;
+
+    const monthCount = rawList.filter(c => {
+      const d = c.createdAt ? new Date(c.createdAt).getTime() : 0;
+      return d >= startOfMonth;
+    }).length;
+
+    const multiStoreCount = rawList.filter(c => c.linkedStoresCount >= 2).length;
+    const activeCount = rawList.filter(c => (c.status === 'ACTIVE' || !c.status) && c.isActive !== false).length;
+    const suspendedCount = rawList.filter(c => c.status === 'SUSPENDED' || c.isActive === false).length;
+
+    return {
+      total,
+      marketplaceCount,
+      storeRegisteredCount,
+      todayCount,
+      weekCount,
+      monthCount,
+      multiStoreCount,
+      activeCount,
+      suspendedCount
+    };
+  }, [state.persons, state.users, state.clientStoreRelations]);
 
   // Filtered Agencies with Tabs and Search
   const filteredAgencies = useMemo(() => {
@@ -576,6 +655,18 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
         </button>
 
         <button
+          onClick={() => setActiveTab('stores-verification')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'stores-verification'
+              ? 'bg-brand-600 text-white shadow-md'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <BadgeCheck className="w-4 h-4 text-emerald-400" />
+          Vérification Boutiques
+        </button>
+
+        <button
           onClick={() => setActiveTab('agency-admins')}
           className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'agency-admins'
@@ -597,6 +688,18 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
         >
           <Users className="w-4 h-4" />
           Utilisateurs Globaux ({state.users.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('clients')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'clients'
+              ? 'bg-brand-600 text-white shadow-md'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Users className="w-4 h-4 text-emerald-400" />
+          Gestion des Clients ({allPlatformClients.length})
         </button>
 
         <button
@@ -1148,6 +1251,13 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
       )}
 
       {/* ======================================================================= */}
+      {/* TAB 2.5: VÉRIFICATION & VALIDATION DES BOUTIQUES */}
+      {/* ======================================================================= */}
+      {activeTab === 'stores-verification' && (
+        <AdminStoresVerificationView onNavigateToStore={onNavigateToAgency} />
+      )}
+
+      {/* ======================================================================= */}
       {/* TAB 3: ADMINISTRATEURS D'AGENCE */}
       {/* ======================================================================= */}
       {activeTab === 'agency-admins' && (
@@ -1503,6 +1613,389 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
             </Table>
           </div>
         </Card>
+      )}
+
+      {/* ======================================================================= */}
+      {/* TAB: GESTION CENTRALISÉE DES CLIENTS DU MARKETPLACE & BOUTIQUES */}
+      {/* ======================================================================= */}
+      {activeTab === 'clients' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Header & Subtitle */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Users className="w-5 h-5 text-emerald-500" />
+                Gestion Centralisée des Clients de la Plateforme
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Supervision unifiée des comptes clients Marketplace et des clientèles enregistrées par les boutiques (avec isolation multi-boutiques).
+              </p>
+            </div>
+          </div>
+
+          {/* Client Metrics Overview - 9 Counters with Real Data */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
+            <Card className="p-3 border-l-4 border-l-brand-600 bg-white dark:bg-slate-900 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Clients</span>
+              <strong className="text-lg font-black text-brand-600 dark:text-brand-400 block mt-0.5">
+                {clientMetrics.total}
+              </strong>
+              <span className="text-[10px] text-slate-400">Identités uniques</span>
+            </Card>
+
+            <Card className="p-3 border-l-4 border-l-blue-500 bg-white dark:bg-slate-900 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Marketplace</span>
+              <strong className="text-lg font-black text-blue-600 dark:text-blue-400 block mt-0.5">
+                {clientMetrics.marketplaceCount}
+              </strong>
+              <span className="text-[10px] text-slate-400">Comptes acheteurs</span>
+            </Card>
+
+            <Card className="p-3 border-l-4 border-l-emerald-500 bg-white dark:bg-slate-900 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Boutiques</span>
+              <strong className="text-lg font-black text-emerald-600 dark:text-emerald-400 block mt-0.5">
+                {clientMetrics.storeRegisteredCount}
+              </strong>
+              <span className="text-[10px] text-slate-400">En magasin</span>
+            </Card>
+
+            <Card className="p-3 border-l-4 border-l-indigo-500 bg-white dark:bg-slate-900 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Aujourd'hui</span>
+              <strong className="text-lg font-black text-indigo-600 dark:text-indigo-400 block mt-0.5">
+                +{clientMetrics.todayCount}
+              </strong>
+              <span className="text-[10px] text-slate-400">Nouveaux 24h</span>
+            </Card>
+
+            <Card className="p-3 border-l-4 border-l-cyan-500 bg-white dark:bg-slate-900 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Cette Semaine</span>
+              <strong className="text-lg font-black text-cyan-600 dark:text-cyan-400 block mt-0.5">
+                +{clientMetrics.weekCount}
+              </strong>
+              <span className="text-[10px] text-slate-400">Derniers 7 jours</span>
+            </Card>
+
+            <Card className="p-3 border-l-4 border-l-amber-500 bg-white dark:bg-slate-900 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Ce Mois</span>
+              <strong className="text-lg font-black text-amber-600 dark:text-amber-400 block mt-0.5">
+                +{clientMetrics.monthCount}
+              </strong>
+              <span className="text-[10px] text-slate-400">Mois en cours</span>
+            </Card>
+
+            <Card className="p-3 border-l-4 border-l-purple-500 bg-white dark:bg-slate-900 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Multi-Boutiques</span>
+              <strong className="text-lg font-black text-purple-600 dark:text-purple-400 block mt-0.5">
+                {clientMetrics.multiStoreCount}
+              </strong>
+              <span className="text-[10px] text-slate-400">Liés à ≥ 2</span>
+            </Card>
+
+            <Card className="p-3 border-l-4 border-l-teal-500 bg-white dark:bg-slate-900 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Actifs</span>
+              <strong className="text-lg font-black text-teal-600 dark:text-teal-400 block mt-0.5">
+                {clientMetrics.activeCount}
+              </strong>
+              <span className="text-[10px] text-slate-400">Accès autorisés</span>
+            </Card>
+
+            <Card className="p-3 border-l-4 border-l-rose-500 bg-white dark:bg-slate-900 shadow-sm col-span-2 sm:col-span-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Suspendus</span>
+              <strong className="text-lg font-black text-rose-600 dark:text-rose-400 block mt-0.5">
+                {clientMetrics.suspendedCount}
+              </strong>
+              <span className="text-[10px] text-slate-400">Accès bloqués</span>
+            </Card>
+          </div>
+
+          {/* 6 Sub-Tabs for Clients */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-1.5 rounded-2xl">
+            <button
+              onClick={() => setClientSubTab('ALL')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                clientSubTab === 'ALL'
+                  ? 'bg-brand-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+              }`}
+            >
+              1. Tous les clients ({clientMetrics.total})
+            </button>
+
+            <button
+              onClick={() => setClientSubTab('MARKETPLACE')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                clientSubTab === 'MARKETPLACE'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+              }`}
+            >
+              2. Clients Marketplace ({clientMetrics.marketplaceCount})
+            </button>
+
+            <button
+              onClick={() => setClientSubTab('STORE_REGISTERED')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                clientSubTab === 'STORE_REGISTERED'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+              }`}
+            >
+              3. Enregistrés par Boutiques ({clientMetrics.storeRegisteredCount})
+            </button>
+
+            <button
+              onClick={() => setClientSubTab('MULTI_STORE')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                clientSubTab === 'MULTI_STORE'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+              }`}
+            >
+              4. Clients Multi-Boutiques ({clientMetrics.multiStoreCount})
+            </button>
+
+            <button
+              onClick={() => setClientSubTab('RECENT')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                clientSubTab === 'RECENT'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+              }`}
+            >
+              5. Inscriptions Récentes
+            </button>
+
+            <button
+              onClick={() => setClientSubTab('SUSPENDED')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                clientSubTab === 'SUSPENDED'
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+              }`}
+            >
+              6. Clients Suspendus ({clientMetrics.suspendedCount})
+            </button>
+          </div>
+
+          {/* Search & Origin Filter Bar */}
+          <Card className="p-3.5 bg-white dark:bg-slate-900">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2 relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher par nom, prénom, téléphone, email, ville..."
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:border-brand-500 font-medium"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Select
+                  value={clientOriginFilter}
+                  onChange={(e) => setClientOriginFilter(e.target.value as any)}
+                  options={[
+                    { value: 'ALL', label: 'Toutes les origines' },
+                    { value: 'MARKETPLACE', label: 'Marketplace uniquement' },
+                    { value: 'STORE_REGISTERED', label: 'Enregistrés boutiques' }
+                  ]}
+                  className="text-xs w-full"
+                />
+              </div>
+            </div>
+          </Card>
+
+          {/* Clients List Table */}
+          <Card className="overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50 dark:bg-slate-800/50">
+                    <TableHead className="text-xs font-bold">Client</TableHead>
+                    <TableHead className="text-xs font-bold">Coordonnées & Ville</TableHead>
+                    <TableHead className="text-xs font-bold">Type de Client</TableHead>
+                    <TableHead className="text-xs font-bold">Boutiques Associées</TableHead>
+                    <TableHead className="text-xs font-bold">Commandes & Volume</TableHead>
+                    <TableHead className="text-xs font-bold">Dernière Activité</TableHead>
+                    <TableHead className="text-xs font-bold">Statut</TableHead>
+                    <TableHead className="text-xs font-bold text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allPlatformClients.length > 0 ? (
+                    allPlatformClients.map((client) => {
+                      const isSuspended = client.status === 'SUSPENDED' || client.isActive === false;
+                      return (
+                        <TableRow key={client.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                          {/* Client Name */}
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 font-black text-xs flex items-center justify-center border border-brand-200 shrink-0">
+                                {client.firstName?.[0]?.toUpperCase() || 'C'}
+                              </div>
+                              <div className="space-y-0.5">
+                                <strong className="text-xs font-bold text-slate-900 dark:text-white block">
+                                  {client.firstName} {client.lastName}
+                                </strong>
+                                <span className="text-[10px] text-slate-400 block font-mono">
+                                  Inscrit : {client.createdAt ? formatDate(client.createdAt) : 'Non daté'}
+                                </span>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          {/* Contact & City */}
+                          <TableCell>
+                            <div className="space-y-0.5 text-xs">
+                              <div className="font-mono text-slate-700 dark:text-slate-300 text-[11px] font-bold">
+                                📞 {client.phone || 'Non renseigné'}
+                              </div>
+                              {client.email && !client.email.includes('@client.guineeboutiques.gn') && (
+                                <div className="text-[10px] text-slate-500 truncate max-w-[150px]">
+                                  ✉️ {client.email}
+                                </div>
+                              )}
+                              <div className="text-[10px] text-slate-400">
+                                📍 {client.city || 'Conakry'}
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          {/* Client Type */}
+                          <TableCell>
+                            {client.origin === 'MARKETPLACE' ? (
+                              <div className="space-y-1">
+                                <Badge variant="primary" size="sm" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-extrabold">
+                                  🛒 {client.clientTypeLabel || 'CLIENT MARKETPLACE'}
+                                </Badge>
+                                <span className="text-[10px] text-slate-400 block">
+                                  Agence : Aucune
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <Badge variant="success" size="sm" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-extrabold">
+                                  🏬 {client.clientTypeLabel || 'CLIENT ENREGISTRÉ PAR UNE BOUTIQUE'}
+                                </Badge>
+                                <span className="text-[10px] text-slate-500 block truncate max-w-[160px]">
+                                  Boutique : {client.principalAgencyLabel || 'Boutique'}
+                                </span>
+                              </div>
+                            )}
+                          </TableCell>
+
+                          {/* Linked Stores */}
+                          <TableCell>
+                            <div className="space-y-1">
+                              {client.linkedStores && client.linkedStores.length > 0 ? (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {client.linkedStores.map((s) => (
+                                    <span
+                                      key={s.id}
+                                      className="inline-block text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 truncate max-w-[130px]"
+                                      title={s.name}
+                                    >
+                                      {s.name}
+                                    </span>
+                                  ))}
+                                  {client.linkedStores.length >= 2 && (
+                                    <Badge variant="warning" size="sm" className="text-[9px] font-black uppercase">
+                                      Multi ({client.linkedStores.length})
+                                    </Badge>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">
+                                  Aucune (Marketplace public)
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+
+                          {/* Orders & Volume */}
+                          <TableCell>
+                            <div className="space-y-0.5 text-xs">
+                              <strong className="text-slate-800 dark:text-slate-200 font-bold block">
+                                {client.totalOrdersCount} commande(s)
+                              </strong>
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] block">
+                                {formatCurrency(client.totalSpentAmount || 0)}
+                              </span>
+                            </div>
+                          </TableCell>
+
+                          {/* Last Activity */}
+                          <TableCell>
+                            <div className="space-y-0.5 text-[11px]">
+                              <strong className="text-slate-700 dark:text-slate-300 font-mono block">
+                                {client.lastActivityDate ? formatDate(client.lastActivityDate) : 'Aucune'}
+                              </strong>
+                              {client.lastLoginAt && (
+                                <span className="text-[10px] text-slate-400 block font-mono">
+                                  Connexion : {formatDate(client.lastLoginAt)}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+
+                          {/* Status */}
+                          <TableCell>
+                            <Badge variant={isSuspended ? 'danger' : 'success'} size="sm" className="font-extrabold text-[10px]">
+                              {isSuspended ? '🔴 SUSPENDU' : '🟢 ACTIF'}
+                            </Badge>
+                          </TableCell>
+
+                          {/* Actions */}
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                icon={Eye}
+                                onClick={() => setSelectedClientForView(client)}
+                                className="text-xs font-bold py-1 px-2.5 h-auto text-brand-700 bg-brand-50 hover:bg-brand-100"
+                              >
+                                Fiche Client
+                              </Button>
+
+                              <button
+                                onClick={() => {
+                                  const res = dbStore.toggleClientSuspension(client.id);
+                                  if (res.success) {
+                                    showToast(
+                                      res.status === 'SUSPENDED' ? 'Client Suspendu' : 'Client Réactivé',
+                                      res.message,
+                                      res.status === 'SUSPENDED' ? 'WARNING' : 'SUCCESS'
+                                    );
+                                  }
+                                }}
+                                className={`p-1.5 rounded-lg border transition-colors ${
+                                  isSuspended
+                                    ? 'text-emerald-600 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
+                                    : 'text-rose-600 bg-rose-50 border-rose-200 hover:bg-rose-100'
+                                }`}
+                                title={isSuspended ? "Réactiver le client" : "Suspendre le client"}
+                              >
+                                <Power className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-12 text-slate-400 text-xs">
+                        Aucun client ne correspond aux critères de filtre ou de recherche.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* ======================================================================= */}
@@ -2760,6 +3253,259 @@ export const SuperAdminDashboardView: React.FC<SuperAdminDashboardViewProps> = (
                 className="font-black"
               >
                 Supprimer Définitivement
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: FICHE CLIENT DÉTAILLÉE 360° (SUPER ADMINISTRATEUR) */}
+      {/* ========================================================================= */}
+      {selectedClientForView && (
+        <Modal
+          isOpen={Boolean(selectedClientForView)}
+          onClose={() => setSelectedClientForView(null)}
+          title={`Fiche Client : ${selectedClientForView.firstName} ${selectedClientForView.lastName}`}
+          maxWidth="2xl"
+        >
+          <div className="space-y-5 pt-1 text-xs">
+            {/* Header / Identity Banner */}
+            <div className="p-4 bg-gradient-to-r from-slate-900 to-brand-950 rounded-2xl text-white flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-black text-lg">
+                  {selectedClientForView.firstName?.[0]?.toUpperCase() || 'C'}
+                </div>
+                <div>
+                  <h4 className="text-base font-black text-white">
+                    {selectedClientForView.firstName} {selectedClientForView.lastName}
+                  </h4>
+                  <p className="text-slate-300 text-[11px] font-mono">
+                    {selectedClientForView.phone} {selectedClientForView.email ? `• ${selectedClientForView.email}` : ''}
+                  </p>
+                </div>
+              </div>
+
+              <Badge
+                variant={selectedClientForView.status === 'SUSPENDED' || selectedClientForView.isActive === false ? 'danger' : 'success'}
+                size="md"
+                className="font-extrabold uppercase text-[10px]"
+              >
+                {selectedClientForView.status === 'SUSPENDED' || selectedClientForView.isActive === false ? '🔴 Suspendu' : '🟢 Actif'}
+              </Badge>
+            </div>
+
+            {/* Section 1: Coordonnées & Identité */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5">
+              <h5 className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
+                1. Identité & Coordonnées
+              </h5>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="text-slate-400 text-[10px] block">Prénom & Nom</span>
+                  <strong className="text-slate-900 dark:text-white font-bold">
+                    {selectedClientForView.firstName} {selectedClientForView.lastName}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px] block">Téléphone</span>
+                  <strong className="text-slate-900 dark:text-white font-mono">
+                    {selectedClientForView.phone || 'Non renseigné'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px] block">Adresse E-mail</span>
+                  <strong className="text-slate-900 dark:text-white truncate block">
+                    {selectedClientForView.email || 'Non renseignée'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px] block">Ville / Localisation</span>
+                  <strong className="text-slate-900 dark:text-white">
+                    {selectedClientForView.city || 'Conakry'} {selectedClientForView.commune ? `(${selectedClientForView.commune})` : ''}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px] block">Date d'inscription</span>
+                  <strong className="text-slate-900 dark:text-white font-mono">
+                    {selectedClientForView.createdAt ? formatDate(selectedClientForView.createdAt) : 'Non daté'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px] block">Compte Utilisateur Connecté</span>
+                  <strong className="text-slate-900 dark:text-white">
+                    {selectedClientForView.userAccount ? '✓ Oui (Marketplace)' : '— Non (Client Interne)'}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Origine du Client & Agence Principale */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5">
+              <h5 className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
+                2. Type de Client & Agence Principale
+              </h5>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+                  <span className="text-slate-400 text-[10px] uppercase font-bold block">Type de Client</span>
+                  <Badge variant={selectedClientForView.origin === 'MARKETPLACE' ? 'primary' : 'success'} size="sm" className="font-bold">
+                    {selectedClientForView.clientTypeLabel || (selectedClientForView.origin === 'MARKETPLACE' ? 'CLIENT MARKETPLACE' : 'CLIENT BOUTIQUE')}
+                  </Badge>
+                </div>
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+                  <span className="text-slate-400 text-[10px] uppercase font-bold block">Agence Principale</span>
+                  <strong className="text-slate-900 dark:text-white text-xs block">
+                    {selectedClientForView.principalAgencyLabel || 'Aucune'}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Relations Boutiques & Multi-Boutiques */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h5 className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
+                  3. Boutiques Associées ({selectedClientForView.linkedStores?.length || 0})
+                </h5>
+                {selectedClientForView.linkedStores?.length >= 2 && (
+                  <Badge variant="warning" size="sm" className="font-extrabold uppercase text-[9px]">
+                    Multi-Boutiques ({selectedClientForView.linkedStores.length})
+                  </Badge>
+                )}
+              </div>
+
+              {selectedClientForView.linkedStores && selectedClientForView.linkedStores.length > 0 ? (
+                <div className="space-y-2">
+                  {selectedClientForView.linkedStores.map((store: Tenant) => (
+                    <div
+                      key={store.id}
+                      className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-brand-600" />
+                        <div>
+                          <strong className="text-xs font-bold text-slate-900 dark:text-white block">
+                            {store.name}
+                          </strong>
+                          <span className="text-[10px] text-slate-400 font-mono">Code: {store.code} • {store.city || 'Conakry'}</span>
+                        </div>
+                      </div>
+                      <Badge variant="success" size="sm" className="text-[10px] font-bold">
+                        ★ Client Boutique
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400 italic text-xs">
+                  Aucune boutique spécifique rattachée (Client public Marketplace).
+                </p>
+              )}
+            </div>
+
+            {/* Section 4: Historique des Commandes & Ventes */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h5 className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
+                  4. Commandes & Historique d'Achats ({selectedClientForView.totalOrdersCount || 0})
+                </h5>
+                <strong className="text-emerald-600 dark:text-emerald-400 font-black text-xs">
+                  Total Dépensé : {formatCurrency(selectedClientForView.totalSpentAmount || 0)}
+                </strong>
+              </div>
+
+              {selectedClientForView.ordersList && selectedClientForView.ordersList.length > 0 ? (
+                <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                  {selectedClientForView.ordersList.map((ord: any) => (
+                    <div
+                      key={ord.id}
+                      className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <strong className="font-mono text-[11px] text-slate-800 dark:text-slate-200 block">
+                          #{ord.reference}
+                        </strong>
+                        <span className="text-[10px] text-slate-400">
+                          {formatDate(ord.date)} {ord.storeName ? `• ${ord.storeName}` : ''}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <strong className="text-emerald-600 dark:text-emerald-400 block font-bold text-xs">
+                          {formatCurrency(ord.amount)}
+                        </strong>
+                        <Badge variant="primary" size="sm" className="text-[9px]">
+                          {ord.status || 'COMPLÉTÉ'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400 italic text-xs">
+                  Aucune commande enregistrée pour le moment.
+                </p>
+              )}
+            </div>
+
+            {/* Section 5: Messagerie & Activité */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5">
+              <h5 className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
+                5. Supervision Messagerie & Activité
+              </h5>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <span className="text-slate-400 text-[10px] uppercase font-bold block">Conversations</span>
+                  <strong className="text-base font-black text-slate-900 dark:text-white mt-0.5 block">
+                    {selectedClientForView.conversationsCount || 0} discussion(s)
+                  </strong>
+                </div>
+
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <span className="text-slate-400 text-[10px] uppercase font-bold block">Dernière Connexion</span>
+                  <strong className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300 mt-1 block">
+                    {selectedClientForView.lastLoginAt ? formatDate(selectedClientForView.lastLoginAt) : 'Jamais'}
+                  </strong>
+                </div>
+
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <span className="text-slate-400 text-[10px] uppercase font-bold block">Dernière Activité</span>
+                  <strong className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300 mt-1 block">
+                    {selectedClientForView.lastActivityDate ? formatDate(selectedClientForView.lastActivityDate) : 'Aucune'}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 6: Actions de Supervision */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                variant="outline"
+                onClick={() => setSelectedClientForView(null)}
+              >
+                Fermer
+              </Button>
+
+              <Button
+                variant={selectedClientForView.status === 'SUSPENDED' || selectedClientForView.isActive === false ? 'primary' : 'danger'}
+                onClick={() => {
+                  const res = dbStore.toggleClientSuspension(selectedClientForView.id);
+                  if (res.success) {
+                    showToast(
+                      res.status === 'SUSPENDED' ? 'Compte Client Suspendu' : 'Compte Client Réactivé',
+                      res.message,
+                      res.status === 'SUSPENDED' ? 'WARNING' : 'SUCCESS'
+                    );
+                    setSelectedClientForView({
+                      ...selectedClientForView,
+                      status: res.status,
+                      isActive: res.status === 'ACTIVE'
+                    });
+                  }
+                }}
+              >
+                {selectedClientForView.status === 'SUSPENDED' || selectedClientForView.isActive === false
+                  ? '🟢 Réactiver le Compte Client'
+                  : '🔴 Suspendre le Compte Client'}
               </Button>
             </div>
           </div>

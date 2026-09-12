@@ -3,7 +3,8 @@ import {
   LayoutDashboard, Users, ShoppingBag, Store, Factory,
   Monitor, Tag, GraduationCap, CreditCard, Wallet, Boxes,
   Truck, Receipt, BarChart3, Bell, ShieldCheck, History,
-  Settings, KeyRound, UtensilsCrossed, Building2, PackageCheck
+  Settings, KeyRound, UtensilsCrossed, Building2, PackageCheck,
+  MessageSquare
 } from 'lucide-react';
 
 export interface ModuleDefinition {
@@ -34,7 +35,7 @@ export const ACTIVITY_TYPES_CONFIG: Record<ActivityType, ActivityTypeConfig> = {
     description: 'Prestations de reprographie, imprimerie, secrétariat, formations et vente de consommables.',
     icon: Building2,
     defaultModules: [
-      'dashboard', 'persons', 'orders', 'services-pricing', 'production',
+      'dashboard', 'persons', 'orders', 'marketplace-messaging', 'services-pricing', 'production',
       'equipment', 'training', 'boutique', 'stock', 'suppliers',
       'cash', 'payments', 'billing', 'reports', 'notifications',
       'users-rbac', 'audit', 'settings', 'licenses'
@@ -47,7 +48,7 @@ export const ACTIVITY_TYPES_CONFIG: Record<ActivityType, ActivityTypeConfig> = {
     description: 'Commerce de détail et demi-gros (alimentation, quincaillerie, prêt-à-porter, cosmétiques, matériaux...).',
     icon: Store,
     defaultModules: [
-      'dashboard', 'boutique', 'persons', 'stock', 'suppliers',
+      'dashboard', 'boutique', 'orders', 'marketplace-messaging', 'persons', 'stock', 'suppliers',
       'cash', 'payments', 'billing', 'reports', 'notifications',
       'users-rbac', 'audit', 'settings', 'licenses'
     ]
@@ -59,7 +60,7 @@ export const ACTIVITY_TYPES_CONFIG: Record<ActivityType, ActivityTypeConfig> = {
     description: 'Restauration, bar, cuisine, tables et commandes (architecture prévue pour intégration future).',
     icon: UtensilsCrossed,
     defaultModules: [
-      'dashboard', 'stock', 'suppliers', 'cash', 'payments',
+      'dashboard', 'marketplace-messaging', 'stock', 'suppliers', 'cash', 'payments',
       'billing', 'reports', 'notifications', 'users-rbac', 'audit', 'settings', 'licenses'
     ],
     isFutureOnly: true
@@ -71,7 +72,7 @@ export const ACTIVITY_TYPES_CONFIG: Record<ActivityType, ActivityTypeConfig> = {
     description: 'Distribution en gros et gestion de dépôts de stockage.',
     icon: PackageCheck,
     defaultModules: [
-      'dashboard', 'boutique', 'persons', 'stock', 'suppliers',
+      'dashboard', 'boutique', 'orders', 'marketplace-messaging', 'persons', 'stock', 'suppliers',
       'cash', 'payments', 'billing', 'reports', 'notifications',
       'users-rbac', 'audit', 'settings', 'licenses'
     ]
@@ -83,7 +84,7 @@ export const ACTIVITY_TYPES_CONFIG: Record<ActivityType, ActivityTypeConfig> = {
     description: 'Entreprise de services généraux ou commerce diversifié.',
     icon: Building2,
     defaultModules: [
-      'dashboard', 'boutique', 'persons', 'stock', 'suppliers',
+      'dashboard', 'boutique', 'orders', 'marketplace-messaging', 'persons', 'stock', 'suppliers',
       'cash', 'payments', 'billing', 'reports', 'notifications',
       'users-rbac', 'audit', 'settings', 'licenses'
     ]
@@ -121,7 +122,15 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
     description: 'Prise de commande de prestations et articles, bons de livraison.',
     category: 'COMMERCIAL',
     icon: ShoppingBag,
-    isAvailableForActivities: ['SERVICE_CENTER', 'WHOLESALE', 'OTHER']
+    isAvailableForActivities: ['SERVICE_CENTER', 'RETAIL_STORE', 'WHOLESALE', 'OTHER']
+  },
+  {
+    id: 'marketplace-messaging',
+    name: 'Messagerie Client & Marketplace',
+    description: 'Boîte de réception collaborative partagée pour échanger avec les clients et traiter les commandes.',
+    category: 'COMMERCIAL',
+    icon: MessageSquare,
+    isAvailableForActivities: ['SERVICE_CENTER', 'RETAIL_STORE', 'RESTAURANT', 'WHOLESALE', 'OTHER']
   },
   {
     id: 'services-pricing',

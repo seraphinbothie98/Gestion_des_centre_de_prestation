@@ -216,6 +216,8 @@ CREATE TABLE IF NOT EXISTS service_pricing_rules (
 -- 5. ORDERS & PRODUCTION WORKFLOW
 -- ==============================================================================
 
+CREATE TYPE order_source_enum AS ENUM ('INTERNAL', 'BOUTIQUE_POS', 'MARKETPLACE', 'PRESTATION');
+
 CREATE TYPE order_status_enum AS ENUM (
     'DRAFT', 'PENDING', 'CONFIRMED', 'IN_PRODUCTION', 'COMPLETED', 'READY', 'DELIVERED', 'CANCELLED'
 );
@@ -227,11 +229,14 @@ CREATE TABLE IF NOT EXISTS orders (
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
     order_number VARCHAR(50) NOT NULL,
+    order_source order_source_enum NOT NULL DEFAULT 'INTERNAL',
     customer_type VARCHAR(20) NOT NULL DEFAULT 'REGISTERED', -- 'REGISTERED' | 'WALK_IN'
-    person_id UUID REFERENCES persons(id) ON DELETE SET NULL, -- NULL for walk-in customers
+    person_id UUID REFERENCES persons(id) ON DELETE SET NULL, -- NULL for walk-in / marketplace guests
     person_name VARCHAR(255) NOT NULL,
     person_phone VARCHAR(50),
     person_email VARCHAR(255),
+    client_city VARCHAR(100),
+    delivery_address TEXT,
     status order_status_enum NOT NULL DEFAULT 'PENDING',
     priority order_priority_enum NOT NULL DEFAULT 'NORMAL',
     subtotal NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
@@ -242,6 +247,7 @@ CREATE TABLE IF NOT EXISTS orders (
     due_amount NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
     due_date TIMESTAMP WITH TIME ZONE,
     instructions TEXT,
+    is_read_by_merchant BOOLEAN NOT NULL DEFAULT FALSE,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -252,9 +258,13 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE TABLE IF NOT EXISTS order_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    service_id UUID NOT NULL REFERENCES services(id) ON DELETE RESTRICT,
+    service_id UUID REFERENCES services(id) ON DELETE RESTRICT,
+    product_id UUID REFERENCES products(id) ON DELETE RESTRICT,
     description TEXT,
     quantity NUMERIC(10, 2) NOT NULL DEFAULT 1,
+    unit VARCHAR(50),
+    public_unit VARCHAR(50), -- Unité commerciale choisie par le client
+    product_image_url TEXT,
     unit_price NUMERIC(15, 2) NOT NULL,
     discount_percent NUMERIC(5, 2) DEFAULT 0.00,
     total_price NUMERIC(15, 2) NOT NULL,
@@ -607,6 +617,15 @@ CREATE TABLE IF NOT EXISTS products (
     location TEXT,
     stock_by_location JSONB DEFAULT '{}'::jsonb,
     supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
+    public_unit VARCHAR(50), -- Public selling unit displayed on marketplace (e.g. Carton, Paquet, Sac)
+    public_price NUMERIC(15, 2), -- Public selling price in GNF
+    conversion_factor_to_stock_unit NUMERIC(10, 2) DEFAULT 1.0,
+    images JSONB DEFAULT '[]'::jsonb, -- Array of up to 4 real photos
+    video_url TEXT, -- Optional explanatory video URL
+    is_marketplace_published BOOLEAN DEFAULT FALSE,
+    publication_status VARCHAR(50) DEFAULT 'DRAFT', -- 'DRAFT', 'PUBLISHED', 'UNPUBLISHED', 'DISABLED'
+    published_at TIMESTAMP WITH TIME ZONE,
+    unpublished_at TIMESTAMP WITH TIME ZONE,
     is_active BOOLEAN DEFAULT TRUE,
     is_archived BOOLEAN DEFAULT FALSE,
     archived_at TIMESTAMP WITH TIME ZONE,
@@ -615,6 +634,19 @@ CREATE TABLE IF NOT EXISTS products (
     deleted_at TIMESTAMP WITH TIME ZONE,
     CONSTRAINT uq_tenant_product_code UNIQUE (tenant_id, code),
     CONSTRAINT uq_tenant_product_barcode UNIQUE (tenant_id, barcode)
+);
+
+-- ==============================================================================
+-- PRODUCT IMAGES (Up to 4 Real Views linked strictly by product_id)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS product_images (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    image_url TEXT NOT NULL,
+    display_order INTEGER NOT NULL DEFAULT 1, -- 1=Vue 1 (Principale), 2=Vue 2, 3=Vue 3, 4=Vue 4
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_product_image_order UNIQUE (product_id, display_order)
 );
 
 -- Automatic stock consumption link with services
@@ -801,6 +833,213 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 -- ==============================================================================
+-- MARKETPLACE EXTENSIONS: CATEGORIES, CONVERSATIONS & MESSAGES
+-- ==============================================================================
+
+-- Central catalog of Marketplace categories
+CREATE TABLE IF NOT EXISTS marketplace_categories (
+    id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    description TEXT,
+    icon VARCHAR(100),
+    display_order INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Store category affiliations
+CREATE TABLE IF NOT EXISTS tenant_marketplace_categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    category_id VARCHAR(100) NOT NULL REFERENCES marketplace_categories(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_tenant_marketplace_category UNIQUE (tenant_id, category_id)
+);
+
+-- Marketplace Conversations between Customer and Store
+CREATE TABLE IF NOT EXISTS marketplace_conversations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id VARCHAR(100) NOT NULL,
+    customer_name VARCHAR(255) NOT NULL,
+    customer_phone VARCHAR(50),
+    boutique_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    boutique_name VARCHAR(255) NOT NULL,
+    product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+    publication_id VARCHAR(100),
+    product_name VARCHAR(255),
+    product_image_url TEXT,
+    public_price NUMERIC(15, 2),
+    public_unit VARCHAR(50),
+    order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+    order_code VARCHAR(100),
+    order_total NUMERIC(15, 2),
+    service_id UUID REFERENCES services(id) ON DELETE SET NULL,
+    service_name VARCHAR(255),
+    last_message_content TEXT,
+    last_message_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_sender_role VARCHAR(100),
+    unread_by_boutique INTEGER NOT NULL DEFAULT 0,
+    unread_by_customer INTEGER NOT NULL DEFAULT 0,
+    status VARCHAR(50) NOT NULL DEFAULT 'OPEN', -- 'OPEN' | 'ARCHIVED' | 'CLOSED'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Marketplace Messages in a Conversation
+CREATE TABLE IF NOT EXISTS marketplace_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    conversation_id UUID NOT NULL REFERENCES marketplace_conversations(id) ON DELETE CASCADE,
+    sender_id VARCHAR(100) NOT NULL,
+    sender_type VARCHAR(20) NOT NULL, -- 'CUSTOMER' | 'BOUTIQUE' | 'STAFF' | 'ADMIN'
+    sender_name VARCHAR(255) NOT NULL,
+    sender_role VARCHAR(100), -- 'Client', 'Vendeur', 'Gérant', 'Accueil / Réception', 'Administrateur'
+    content TEXT NOT NULL,
+    message_type VARCHAR(50) NOT NULL DEFAULT 'TEXT', -- 'TEXT' | 'IMAGE' | 'ORDER_REF' | 'PRODUCT_REF'
+    image_url TEXT,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==============================================================================
+-- ROW LEVEL SECURITY (RLS) POLICIES FOR MESSAGING
+-- ==============================================================================
+ALTER TABLE marketplace_conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marketplace_messages ENABLE ROW LEVEL SECURITY;
+
+-- 1. CLIENT RLS: Can view and insert conversations/messages where customer_id matches auth.uid()
+CREATE POLICY rls_mkt_conv_client_select ON marketplace_conversations
+    FOR SELECT USING (customer_id = auth.uid()::text OR auth.jwt() ->> 'role' = 'SUPER_ADMIN');
+
+CREATE POLICY rls_mkt_conv_client_insert ON marketplace_conversations
+    FOR INSERT WITH CHECK (customer_id = auth.uid()::text);
+
+CREATE POLICY rls_mkt_msg_client_select ON marketplace_messages
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM marketplace_conversations c 
+            WHERE c.id = marketplace_messages.conversation_id 
+              AND (c.customer_id = auth.uid()::text OR auth.jwt() ->> 'role' = 'SUPER_ADMIN')
+        )
+    );
+
+CREATE POLICY rls_mkt_msg_client_insert ON marketplace_messages
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM marketplace_conversations c 
+            WHERE c.id = marketplace_messages.conversation_id 
+              AND c.customer_id = auth.uid()::text
+        )
+    );
+
+-- 2. BOUTIQUE / STAFF RLS: Authorized staff of a boutique can view/reply to their boutique's conversations
+CREATE POLICY rls_mkt_conv_boutique_select ON marketplace_conversations
+    FOR SELECT USING (
+        boutique_id IN (
+            SELECT tenant_id FROM users WHERE id = auth.uid()
+        ) OR auth.jwt() ->> 'role' = 'SUPER_ADMIN'
+    );
+
+CREATE POLICY rls_mkt_conv_boutique_update ON marketplace_conversations
+    FOR UPDATE USING (
+        boutique_id IN (
+            SELECT tenant_id FROM users WHERE id = auth.uid()
+        ) OR auth.jwt() ->> 'role' = 'SUPER_ADMIN'
+    );
+
+CREATE POLICY rls_mkt_msg_boutique_select ON marketplace_messages
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM marketplace_conversations c 
+            WHERE c.id = marketplace_messages.conversation_id 
+              AND (c.boutique_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()) OR auth.jwt() ->> 'role' = 'SUPER_ADMIN')
+        )
+    );
+
+CREATE POLICY rls_mkt_msg_boutique_insert ON marketplace_messages
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM marketplace_conversations c 
+            WHERE c.id = marketplace_messages.conversation_id 
+              AND (c.boutique_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()) OR auth.jwt() ->> 'role' = 'SUPER_ADMIN')
+        )
+    );
+
+-- Notifications Table & Audit
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    boutique_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    service_id UUID REFERENCES services(id) ON DELETE SET NULL,
+    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(20) NOT NULL DEFAULT 'INFO', -- 'INFO' | 'SUCCESS' | 'WARNING' | 'DANGER'
+    link TEXT,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Order Tracking Events Table
+CREATE TABLE IF NOT EXISTS order_tracking_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    status VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    actor_name VARCHAR(255),
+    actor_role VARCHAR(100),
+    is_completed BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==============================================================================
+-- ROW LEVEL SECURITY (RLS) POLICIES FOR NOTIFICATIONS & ORDERS
+-- ==============================================================================
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_tracking_events ENABLE ROW LEVEL SECURITY;
+
+-- 1. NOTIFICATIONS RLS: Strict Boutique and User Isolation
+CREATE POLICY rls_notifications_tenant_select ON notifications
+    FOR SELECT USING (
+        (boutique_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()) AND (user_id IS NULL OR user_id = auth.uid()))
+        OR (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()) AND (user_id IS NULL OR user_id = auth.uid()))
+        OR user_id = auth.uid()
+        OR auth.jwt() ->> 'role' = 'SUPER_ADMIN'
+    );
+
+CREATE POLICY rls_notifications_tenant_update ON notifications
+    FOR UPDATE USING (
+        (boutique_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()) AND (user_id IS NULL OR user_id = auth.uid()))
+        OR (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()) AND (user_id IS NULL OR user_id = auth.uid()))
+        OR user_id = auth.uid()
+        OR auth.jwt() ->> 'role' = 'SUPER_ADMIN'
+    );
+
+-- 2. ORDERS RLS: Strict Boutique and Client Separation
+CREATE POLICY rls_orders_tenant_isolation ON orders
+    FOR ALL USING (
+        tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid())
+        OR person_id = auth.uid()::text
+        OR auth.jwt() ->> 'role' = 'SUPER_ADMIN'
+    );
+
+-- 3. ORDER TRACKING RLS: Accessible by Owning Boutique or Owning Customer
+CREATE POLICY rls_order_tracking_select ON order_tracking_events
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM orders o
+            WHERE o.id = order_tracking_events.order_id
+              AND (
+                  o.tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid())
+                  OR o.person_id = auth.uid()::text
+                  OR auth.jwt() ->> 'role' = 'SUPER_ADMIN'
+              )
+        )
+    );
+
+-- ==============================================================================
 -- INDEXES FOR PERFORMANCE OPTIMIZATION
 -- ==============================================================================
 
@@ -816,3 +1055,92 @@ CREATE INDEX IF NOT EXISTS idx_payments_tenant_date ON payments(tenant_id, creat
 CREATE INDEX IF NOT EXISTS idx_cash_sessions_register ON cash_sessions(cash_register_id, status);
 CREATE INDEX IF NOT EXISTS idx_products_tenant_stock ON products(tenant_id, current_stock);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_action ON audit_logs(tenant_id, action, created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_tenant ON notifications(tenant_id, user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_boutique ON notifications(boutique_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_order_tracking_order ON order_tracking_events(order_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_mkt_conv_boutique ON marketplace_conversations(boutique_id, last_message_at);
+CREATE INDEX IF NOT EXISTS idx_mkt_conv_customer ON marketplace_conversations(customer_id, last_message_at);
+CREATE INDEX IF NOT EXISTS idx_mkt_conv_order ON marketplace_conversations(order_id);
+CREATE INDEX IF NOT EXISTS idx_mkt_msg_conv ON marketplace_messages(conversation_id, created_at);
+
+-- ==============================================================================
+-- 18. STORE VERIFICATION & AUTHENTICATION (BOUTIQUES GUINÉENNES)
+-- ==============================================================================
+
+-- Create store verification status and commercial status enums if supported
+DO $$ BEGIN
+    CREATE TYPE store_verification_status_enum AS ENUM (
+        'BROUILLON', 'EN_ATTENTE', 'EN_REVISION', 'INFORMATIONS_DEMANDEES', 'APPROUVE', 'REFUSE', 'ANNULE'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE store_commercial_status_enum AS ENUM (
+        'EN_ATTENTE_VALIDATION', 'VALIDEE', 'ESSAI_GRATUIT', 'ACTIVE', 'SUSPENDUE', 'ESSAI_EXPIRE', 'ABONNEMENT_EXPIRE', 'FERMEE'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Store Verifications Table
+CREATE TABLE IF NOT EXISTS store_verifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    store_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    store_name VARCHAR(255) NOT NULL,
+    submitted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    submitted_by_name VARCHAR(255) NOT NULL,
+    submitted_by_phone VARCHAR(50) NOT NULL,
+    submitted_by_email VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'EN_ATTENTE',
+    commercial_status VARCHAR(50) DEFAULT 'EN_ATTENTE_VALIDATION',
+    reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_by_name VARCHAR(255),
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    rejection_reason TEXT,
+    rejection_note TEXT,
+    internal_admin_notes TEXT,
+    requested_information TEXT,
+    has_potential_duplicate BOOLEAN DEFAULT FALSE,
+    duplicate_warning_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_store_verifications_store ON store_verifications(store_id);
+CREATE INDEX IF NOT EXISTS idx_store_verifications_status ON store_verifications(status);
+CREATE INDEX IF NOT EXISTS idx_store_verifications_submitted_by ON store_verifications(submitted_by);
+
+-- RLS: Public can only view APPROVED & ACTIVE stores
+ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY rls_public_verified_stores_select ON tenants
+    FOR SELECT USING (
+        (verification_status = 'APPROUVE' AND (commercial_status = 'ESSAI_GRATUIT' OR commercial_status = 'ACTIVE' OR commercial_status = 'VALIDEE') AND is_active = TRUE)
+        OR id IN (SELECT tenant_id FROM users WHERE id = auth.uid())
+        OR auth.jwt() ->> 'role' = 'SUPER_ADMIN'
+    );
+
+-- RLS: Public can only view PUBLISHED products from APPROVED & ACTIVE stores
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY rls_public_published_products_select ON products
+    FOR SELECT USING (
+        (
+            publication_status = 'PUBLISHED' 
+            AND is_active = TRUE 
+            AND is_archived = FALSE
+            AND tenant_id IN (
+                SELECT id FROM tenants 
+                WHERE verification_status = 'APPROUVE' 
+                AND (commercial_status = 'ESSAI_GRATUIT' OR commercial_status = 'ACTIVE' OR commercial_status = 'VALIDEE')
+                AND is_active = TRUE
+            )
+        )
+        OR tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid())
+        OR auth.jwt() ->> 'role' = 'SUPER_ADMIN'
+    );
+
+
+

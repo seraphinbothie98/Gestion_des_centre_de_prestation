@@ -29,7 +29,7 @@ interface AuthContextType {
   switchTenant: (tenantId: string) => void;
   switchAgency: (agencyId: string) => void;
   switchBranch: (branchId: string) => void;
-  login: (identifier: string, password?: string) => { success: boolean; message?: string; isLocked?: boolean; remainingMinutes?: number };
+  login: (identifier: string, password?: string) => { success: boolean; message?: string; isLocked?: boolean; remainingMinutes?: number; user?: User };
   unlockUserAccount: (targetUserId: string, reason?: string) => { success: boolean; message: string };
   registerAgency: (data: any) => { success: boolean; message: string; user?: User; tenant?: Tenant };
   logout: () => void;
@@ -52,20 +52,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     return dbStore.subscribe(() => {
       setDbState({ ...dbStore.getState() });
+      setIsAuthenticated(localStorage.getItem('cms_is_authenticated') === 'true');
     });
   }, []);
 
-  const currentUser = dbState.users.find(u => u.id === dbState.currentUserId) || dbState.users[0] || null;
+  const savedUserId = typeof window !== 'undefined' ? localStorage.getItem('cms_current_user_id') : null;
+  const activeUserId = savedUserId || dbState.currentUserId;
+  const currentUser: User | null = isAuthenticated
+    ? (dbState.users.find(u => u.id === activeUserId) || null)
+    : null;
+
   const isSuperAdmin = Boolean(
-    currentUser?.isSuperAdmin ||
-    currentUser?.roles.some(r => r.code === 'SUPER_ADMIN') ||
-    currentUser?.username === 'superadmin'
+    currentUser && (
+      currentUser.isSuperAdmin ||
+      currentUser.roles?.some(r => r.code === 'SUPER_ADMIN') ||
+      currentUser.username === 'superadmin'
+    )
   );
 
   // If superadmin, allow picking any tenant. If standard user, strictly resolve to user's assigned tenantId
   const effectiveTenantId = isSuperAdmin
     ? (dbState.currentTenantId && dbState.currentTenantId !== 'global' ? dbState.currentTenantId : dbState.tenants[0]?.id)
-    : (currentUser?.tenantId || dbState.tenants[0]?.id);
+    : (currentUser?.tenantId && currentUser.tenantId !== 'global' ? currentUser.tenantId : dbState.tenants[0]?.id);
 
   const currentTenant = dbState.tenants.find(t => t.id === effectiveTenantId) || dbState.tenants[0] || null;
   const currentAgency = currentTenant;
@@ -163,7 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const login = (identifier: string, password?: string): { success: boolean; message?: string; isLocked?: boolean; remainingMinutes?: number } => {
+  const login = (identifier: string, password?: string): { success: boolean; message?: string; isLocked?: boolean; remainingMinutes?: number; user?: User } => {
     const authRes = dbStore.authenticateUser(identifier, password);
 
     if (!authRes.success || !authRes.user) {
@@ -182,18 +190,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user.roles.some(r => r.code === 'SUPER_ADMIN')
     );
 
+    const isClient = Boolean(
+      user.roles?.some(r => r.code === 'CLIENT') ||
+      user.role === 'CLIENT' ||
+      (!user.isSuperAdmin && !user.roles?.some(r => ['SUPER_ADMIN', 'ADMIN_CENTRE', 'GERANT', 'CAISSIER', 'OPERATEUR', 'RESPONSABLE_FORMATION', 'FORMATEUR', 'MAGASINIER', 'RECEPTIONNISTE'].includes(r.code)))
+    );
+
     if (userIsSuper) {
       localStorage.setItem('cms_active_section', 'saas-superadmin');
       window.location.hash = 'saas-superadmin';
+    } else if (isClient) {
+      localStorage.setItem('cms_active_section', 'marketplace');
+      window.location.hash = '';
+      if (window.location.pathname !== '/') {
+        window.history.pushState({}, '', '/');
+      }
     } else {
       localStorage.setItem('cms_active_section', 'dashboard');
       window.location.hash = 'dashboard';
     }
 
     localStorage.setItem('cms_is_authenticated', 'true');
+    localStorage.setItem('cms_current_user_id', user.id);
+    dbStore.updateState(draft => {
+      draft.currentUserId = user.id;
+      if (user.tenantId && user.tenantId !== 'global') {
+        draft.currentTenantId = user.tenantId;
+      }
+    });
     setIsAuthenticated(true);
 
-    return { success: true };
+    return { success: true, user };
   };
 
   const unlockUserAccount = (targetUserId: string, reason?: string): { success: boolean; message: string } => {
@@ -211,6 +238,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
     localStorage.removeItem('cms_is_authenticated');
+    localStorage.removeItem('cms_current_user_id');
+    localStorage.removeItem('cms_active_section');
+    dbStore.updateState(draft => {
+      draft.currentUserId = '';
+    });
+    window.location.hash = '';
+    if (window.location.pathname !== '/') {
+      window.history.pushState({}, '', '/');
+    }
     setIsAuthenticated(false);
   };
 

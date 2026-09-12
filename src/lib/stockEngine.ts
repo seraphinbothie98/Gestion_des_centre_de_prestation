@@ -1,4 +1,36 @@
 import { Product, ProductPackaging, Service, PurchaseOrder, OrderItem, ServiceConsumableConfig, ConsumableMode } from '../types';
+import { resolveServiceSpecsImpact } from './serviceSpecs';
+
+/**
+ * Calculates the exact consumable quantity for a service line,
+ * taking into account recto-verso sheet division for photocopy & print.
+ * Example: 8 pages in recto-verso = 4 sheets (feuilles), 9 pages = 5 sheets (feuilles).
+ */
+export function calculateEffectiveServiceConsumableQty(
+  service: Service,
+  itemOrLine: { quantity: number; pageCount?: number; copiesCount?: number; notes?: string; description?: string },
+  consumable: { quantityPerUnit: number; unit?: string; productName?: string },
+  product?: Product
+): number {
+  const notes = (itemOrLine.notes || itemOrLine.description || '').toLowerCase();
+  const srvName = (service.name || '').toLowerCase();
+  const isPrintOrCopy = srvName.includes('photocopi') || srvName.includes('impress') || srvName.includes('print') || srvName.includes('copie') || (service.unit || '').toLowerCase() === 'page' || (service.unit || '').toLowerCase() === 'feuille';
+  const isRectoVerso = notes.includes('recto-verso') || notes.includes('recto verso') || notes.includes('recto/verso') || notes.includes('2 faces');
+
+  const unit = (consumable.unit || product?.unit || product?.baseUnit || '').toLowerCase();
+  const prodName = (consumable.productName || product?.name || '').toLowerCase();
+  const isSheetConsumable = unit.includes('feuille') || unit.includes('sheet') || prodName.includes('papier') || prodName.includes('ramette') || prodName.includes('feuille');
+
+  if (isPrintOrCopy && isRectoVerso && isSheetConsumable) {
+    const pageCount = itemOrLine.pageCount ?? itemOrLine.quantity ?? 1;
+    const copiesCount = itemOrLine.copiesCount ?? 1;
+    const sheetsPerCopy = Math.ceil(pageCount / 2);
+    const totalSheets = sheetsPerCopy * copiesCount;
+    return Number((totalSheets * (consumable.quantityPerUnit || 1)).toFixed(4));
+  }
+
+  return Number(((itemOrLine.quantity || 1) * (consumable.quantityPerUnit || 1)).toFixed(4));
+}
 
 export interface ProductUnitDefinition {
   unitName: string;
@@ -366,24 +398,50 @@ export function recalculatePackagingFactors(
  * Calculates aggregate stock requirements from direct boutique items and service internal consumptions.
  */
 export function calculateOrderStockRequirements(
-  lines: Array<{
-    itemType: 'SERVICE' | 'PRODUCT';
-    serviceId?: string;
-    productId?: string;
-    quantity: number;
-    unit?: string;
-    unitName?: string;
-    usePurchaseUnit?: boolean;
-    conversionFactor?: number;
-    stockDeduction?: number;
-    name?: string;
-  }>,
-  services: Service[],
-  products: Product[]
+  linesOrOrder: any,
+  servicesOrProducts?: any[],
+  optionalProducts?: any[]
 ): StockRequirement[] {
   const reqMap = new Map<string, StockRequirement>();
 
-  lines.forEach(line => {
+  // Normalize input
+  let rawLines: any[] = [];
+  if (Array.isArray(linesOrOrder)) {
+    rawLines = linesOrOrder;
+  } else if (linesOrOrder && Array.isArray(linesOrOrder.items)) {
+    rawLines = linesOrOrder.items.map((it: any) => ({
+      itemType: it.serviceId ? 'SERVICE' : 'PRODUCT',
+      serviceId: it.serviceId,
+      productId: it.productId,
+      quantity: it.quantity,
+      unit: it.unit,
+      notes: it.notes,
+      description: it.notes,
+      stockDeduction: it.stockDeduction
+    }));
+  }
+
+  // Resolve services and products arguments
+  let services: Service[] = [];
+  let products: Product[] = [];
+
+  const isServiceList = (arr: any[]) => arr.length > 0 && ('baseCost' in arr[0] || 'requiresFile' in arr[0] || 'pricingRules' in arr[0]);
+  const isProductList = (arr: any[]) => arr.length > 0 && ('currentStock' in arr[0] || 'purchasePrice' in arr[0] || 'sellingPrice' in arr[0]);
+
+  if (Array.isArray(servicesOrProducts)) {
+    if (isServiceList(servicesOrProducts)) {
+      services = servicesOrProducts;
+      products = Array.isArray(optionalProducts) ? optionalProducts : [];
+    } else if (isProductList(servicesOrProducts)) {
+      products = servicesOrProducts;
+      services = Array.isArray(optionalProducts) ? optionalProducts : [];
+    } else {
+      services = servicesOrProducts;
+      products = Array.isArray(optionalProducts) ? optionalProducts : [];
+    }
+  }
+
+  rawLines.forEach(line => {
     if (line.itemType === 'PRODUCT' && line.productId) {
       const prod = products.find(p => p.id === line.productId);
       if (!prod) return;
@@ -394,6 +452,7 @@ export function calculateOrderStockRequirements(
       const deductionInBase = line.stockDeduction !== undefined
         ? line.stockDeduction
         : convertToBaseQuantity(line.quantity, selectedUnit, prod);
+
 
       const existing = reqMap.get(prod.id);
       const desc = `Vente directe : ${line.quantity} ${selectedUnit} (= ${deductionInBase} ${baseUnit})`;
@@ -420,12 +479,25 @@ export function calculateOrderStockRequirements(
       const srv = services.find(s => s.id === line.serviceId);
       if (!srv) return;
 
-      const mode = srv.consumableMode || (srv.consumables && srv.consumables.length > 0 ? 'INTERNAL_VARIABLE' : (srv.consumptions && srv.consumptions.length > 0 ? 'INTERNAL_VARIABLE' : 'NONE'));
+      const hasConfigConsumables = (srv.configurations || []).some(c => (c.consumables || []).length > 0);
+      const mode = srv.consumableMode || (hasConfigConsumables ? 'INTERNAL_VARIABLE' : (srv.consumables && srv.consumables.length > 0 ? 'INTERNAL_VARIABLE' : (srv.consumptions && srv.consumptions.length > 0 ? 'INTERNAL_VARIABLE' : 'NONE')));
       if (mode === 'NONE' || mode === 'CLIENT_SUPPLIED') return;
 
-      // Extract explicit consumables
+      // Extract consumables dynamically from selected specifications or service defaults
+      const specsImpact = resolveServiceSpecsImpact(srv, (line as any).notes || (line as any).description, products);
       const consumablesToProcess: Array<{ productId: string; quantityPerUnit: number; isClientSupplied?: boolean }> = [];
-      if (srv.consumables && srv.consumables.length > 0) {
+
+      if (specsImpact.consumables && specsImpact.consumables.length > 0) {
+        specsImpact.consumables.forEach(c => {
+          if (!c.isClientSupplied) {
+            consumablesToProcess.push({
+              productId: c.productId,
+              quantityPerUnit: c.quantityPerUnit || 1,
+              isClientSupplied: c.isClientSupplied
+            });
+          }
+        });
+      } else if (srv.consumables && srv.consumables.length > 0) {
         srv.consumables.forEach(c => {
           if (!c.isClientSupplied) {
             consumablesToProcess.push({
@@ -450,7 +522,7 @@ export function calculateOrderStockRequirements(
         if (!prod) return;
 
         const baseUnit = prod.baseUnit || prod.unit || 'unité';
-        const consumedQtyInBase = Number((line.quantity * c.quantityPerUnit).toFixed(4));
+        const consumedQtyInBase = calculateEffectiveServiceConsumableQty(srv, line as any, c, prod);
         const existing = reqMap.get(prod.id);
         const desc = `Consommation interne (${srv.name}) : ${consumedQtyInBase} ${baseUnit}`;
 
@@ -760,8 +832,10 @@ export function calculateOrderConsumablesRequirements(
     const service = services.find(s => s.id === item.serviceId);
     if (!service) continue;
 
+    const hasConfigConsumables = (service.configurations || []).some(c => (c.consumables || []).length > 0);
+    const hasServiceConsumables = (service.consumables || []).length > 0;
     const mode: ConsumableMode = service.consumableMode || (
-      service.consumptions && service.consumptions.length > 0 ? 'INTERNAL_VARIABLE' : 'NONE'
+      hasConfigConsumables || hasServiceConsumables || (service.consumptions && service.consumptions.length > 0) ? 'INTERNAL_VARIABLE' : 'NONE'
     );
 
     // MODE 1: NONE -> No consumable deduction
@@ -779,10 +853,13 @@ export function calculateOrderConsumablesRequirements(
       continue;
     }
 
-    // Check configured consumables list
+    // Check configured consumables list or dynamic specification impact
+    const specsImpact = resolveServiceSpecsImpact(service, item.notes || item.description, products);
     let consumablesToProcess: Array<{ productId: string; productName?: string; quantityPerUnit: number; unit?: string; isClientSupplied?: boolean }> = [];
 
-    if (service.consumables && service.consumables.length > 0) {
+    if (specsImpact.consumables && specsImpact.consumables.length > 0) {
+      consumablesToProcess = specsImpact.consumables;
+    } else if (service.consumables && service.consumables.length > 0) {
       consumablesToProcess = service.consumables;
     } else if (service.consumptions && service.consumptions.length > 0) {
       // Legacy fallback
@@ -806,10 +883,10 @@ export function calculateOrderConsumablesRequirements(
       let qtyToDeduct = 0;
       if (mode === 'INTERNAL_FIXED') {
         // Fixed quantity per service execution (or item.quantity documents if fixed per document)
-        qtyToDeduct = cons.quantityPerUnit * (item.quantity || 1);
+        qtyToDeduct = calculateEffectiveServiceConsumableQty(service, item as any, cons, prod);
       } else {
-        // Variable (per page/copy/unit)
-        qtyToDeduct = cons.quantityPerUnit * (item.quantity || 1);
+        // Variable (per page/copy/unit with recto-verso division support)
+        qtyToDeduct = calculateEffectiveServiceConsumableQty(service, item as any, cons, prod);
       }
 
       if (qtyToDeduct > 0) {

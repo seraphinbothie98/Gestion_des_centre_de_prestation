@@ -163,6 +163,11 @@ export const OrderPaymentModal: React.FC<OrderPaymentModalProps> = ({
       performedBy
     });
 
+    // Déduction dynamique du stock magasin si la commande est soldée et non encore déduite
+    if (balanceAfter === 0 && !order.stockDeducted) {
+      dbStore.deductConsumablesForOrder(order.id, currentTenant?.id || order.tenantId, performedBy);
+    }
+
     showToast(
       balanceAfter === 0 ? 'Commande Intégralement Soldée 🟢' : 'Paiement Encaissé 🟠',
       `Encaissement de ${formatCurrency(amountToPay)} enregistré. Reste à payer : ${formatCurrency(balanceAfter)}.`,

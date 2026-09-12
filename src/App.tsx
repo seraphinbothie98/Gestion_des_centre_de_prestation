@@ -14,8 +14,9 @@ const MainAppRouter: React.FC<{
 }> = ({ onOpenCertificateVerification }) => {
   const { isAuthenticated, allTenants, currentUser } = useAuth();
   const [dbState, setDbState] = useState<DatabaseState>(() => dbStore.getState());
+  const [loginMode, setLoginMode] = useState<'BOUTIQUE' | 'CLIENT' | 'SUPER_ADMIN'>('CLIENT');
   const [showLogin, setShowLogin] = useState<boolean>(() => {
-    return window.location.pathname === '/login' || window.location.hash === '#login';
+    return window.location.pathname === '/login' || window.location.hash === '#login' || window.location.hash === '#saas-superadmin';
   });
   const [showMarketplacePreview, setShowMarketplacePreview] = useState<boolean>(false);
 
@@ -30,6 +31,9 @@ const MainAppRouter: React.FC<{
     const handleHashOrPop = () => {
       if (window.location.pathname === '/login' || window.location.hash === '#login') {
         setShowLogin(true);
+      } else if (window.location.hash === '#saas-superadmin' && !isAuthenticated) {
+        setLoginMode('SUPER_ADMIN');
+        setShowLogin(true);
       } else if (window.location.pathname === '/marketplace' || window.location.hash === '#marketplace') {
         setShowMarketplacePreview(true);
         setShowLogin(false);
@@ -41,7 +45,14 @@ const MainAppRouter: React.FC<{
       window.removeEventListener('popstate', handleHashOrPop);
       window.removeEventListener('hashchange', handleHashOrPop);
     };
-  }, []);
+  }, [isAuthenticated]);
+
+  // When unauthenticated (e.g. logout), ensure login overlay & preview mode are cleared
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setShowMarketplacePreview(false);
+    }
+  }, [isAuthenticated]);
 
   const handleRegisterStoreSuccess = (newTenant: Tenant) => {
     // Tenant is registered, offer to log in or update store list
@@ -53,7 +64,30 @@ const MainAppRouter: React.FC<{
     });
   };
 
-  // Case 1: Authenticated user is previewing the public marketplace
+  const isClientUser = Boolean(
+    currentUser && (
+      currentUser.roles?.some(r => r.code === 'CLIENT') ||
+      currentUser.role === 'CLIENT' ||
+      (!currentUser.isSuperAdmin && !currentUser.roles?.some(r => ['SUPER_ADMIN', 'ADMIN_CENTRE', 'GERANT', 'CAISSIER', 'OPERATEUR', 'RESPONSABLE_FORMATION', 'FORMATEUR', 'MAGASINIER', 'RECEPTIONNISTE'].includes(r.code)))
+    )
+  );
+
+  // Case 1: Authenticated CLIENT user is on the Public Marketplace Experience
+  if (isAuthenticated && isClientUser) {
+    return (
+      <MarketplaceHomeView
+        tenants={dbState.tenants}
+        products={dbState.products}
+        onOpenLogin={(mode) => {
+          setLoginMode(mode || 'CLIENT');
+          setShowLogin(true);
+        }}
+        onRegisterStoreSuccess={handleRegisterStoreSuccess}
+      />
+    );
+  }
+
+  // Case 2: Authenticated Staff/Admin is previewing the public marketplace
   if (isAuthenticated && showMarketplacePreview) {
     return (
       <div className="relative">
@@ -79,14 +113,17 @@ const MainAppRouter: React.FC<{
         <MarketplaceHomeView
           tenants={dbState.tenants}
           products={dbState.products}
-          onOpenLogin={() => setShowLogin(true)}
+          onOpenLogin={(mode) => {
+            setLoginMode(mode || 'CLIENT');
+            setShowLogin(true);
+          }}
           onRegisterStoreSuccess={handleRegisterStoreSuccess}
         />
       </div>
     );
   }
 
-  // Case 2: Authenticated user in the standard administration & business management layout
+  // Case 3: Authenticated Staff/Admin user in the standard administration & business management layout
   if (isAuthenticated) {
     return (
       <AppLayout
@@ -96,13 +133,14 @@ const MainAppRouter: React.FC<{
     );
   }
 
-  // Case 3: Unauthenticated user navigated to Login View
+  // Case 4: Unauthenticated user navigated to Login View
   if (showLogin) {
     return (
       <LoginView
+        initialMode={loginMode}
         onBackToMarketplace={() => {
           setShowLogin(false);
-          if (window.location.hash === '#login') {
+          if (window.location.hash === '#login' || window.location.hash === '#saas-superadmin') {
             window.location.hash = '';
           }
         }}
@@ -110,12 +148,15 @@ const MainAppRouter: React.FC<{
     );
   }
 
-  // Case 4: Default public landing page for visitors & clients (Marketplace Boutiques)
+  // Case 5: Default public landing page for visitors & clients (Marketplace Boutiques)
   return (
     <MarketplaceHomeView
       tenants={dbState.tenants}
       products={dbState.products}
-      onOpenLogin={() => setShowLogin(true)}
+      onOpenLogin={(mode) => {
+        setLoginMode(mode || 'CLIENT');
+        setShowLogin(true);
+      }}
       onRegisterStoreSuccess={handleRegisterStoreSuccess}
     />
   );

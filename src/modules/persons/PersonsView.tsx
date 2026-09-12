@@ -64,8 +64,14 @@ export const PersonsView: React.FC = () => {
 
   const agencyPersons = useMemo(() => {
     if (currentAgencyId === 'ALL' || currentAgencyId === 'global') return state.persons;
-    return state.persons.filter(p => p.tenantId === currentAgencyId);
-  }, [state.persons, currentAgencyId]);
+    return dbStore.getStoreClients(currentAgencyId);
+  }, [state.persons, state.clientStoreRelations, state.orders, state.boutiqueSales, currentAgencyId]);
+
+  // Live check for existing customer in the database
+  const existingCustomerMatch = useMemo(() => {
+    if (!newPhone || newPhone.replace(/\s+/g, '').length < 8) return null;
+    return dbStore.findExistingCustomer(newPhone);
+  }, [newPhone, state.persons, state.users, state.clientStoreRelations]);
 
   // Filtered persons
   const filteredPersons = useMemo(() => {
@@ -130,49 +136,29 @@ export const PersonsView: React.FC = () => {
       return;
     }
 
-    const newPersonId = `p-${Date.now()}`;
-    const seq = state.persons.length + 1;
-    const customerCode = `CLT-${new Date().getFullYear()}-${seq.toString().padStart(4, '0')}`;
-    const types: PersonType[] = [newType];
-
-    const newPerson: Person = {
-      id: newPersonId,
-      tenantId: currentTenant?.id || 't-001',
-      firstName: newFirstName.trim() || '',
+    const res = dbStore.registerStoreClient({
+      tenantId: currentAgencyId,
+      firstName: newFirstName.trim(),
       lastName: newLastName.trim(),
-      phone: newPhone.trim() || undefined,
+      phone: newPhone.trim(),
       email: newEmail.trim() || undefined,
       address: newAddress.trim() || undefined,
       notes: newNotes.trim() || undefined,
-      types,
-      isActive: newIsActive,
-      createdAt: new Date().toISOString(),
-      customerProfile: {
-        customerNumber: customerCode,
-        companyName: newCompanyName.trim() || undefined,
-        isCompany: Boolean(newCompanyName.trim()),
-        discountRate: 0,
-        creditLimit: 1000000
-      },
-      learnerProfile: newType === 'LEARNER' ? {
-        learnerNumber: `APP-${new Date().getFullYear()}-${seq.toString().padStart(4, '0')}`,
-        educationLevel: 'Non spécifié',
-        profession: 'Apprenant'
-      } : undefined
-    };
-
-    dbStore.updateState(draft => {
-      draft.persons.unshift(newPerson);
+      companyName: newCompanyName.trim() || undefined,
+      isCompany: Boolean(newCompanyName.trim()),
+      isLoyalCustomer: true
     });
 
-    dbStore.logAudit('CLIENT_CREATED', 'CLIENT', newPersonId, null, {
-      name: `${newFirstName} ${newLastName}`.trim(),
-      customerNumber: customerCode,
-      type: newType,
-      phone: newPhone
-    });
+    if (!res.success) {
+      showToast('Erreur', res.message, 'DANGER');
+      return;
+    }
 
-    showToast('Client Enregistré', `Le client ${newLastName} (${customerCode}) a été ajouté avec succès.`, 'SUCCESS');
+    showToast(
+      res.isExistingAssociated ? 'Client Associé' : 'Client Enregistré',
+      res.message,
+      'SUCCESS'
+    );
     setIsCreateModalOpen(false);
   };
 
@@ -624,6 +610,45 @@ export const PersonsView: React.FC = () => {
                 onChange={(e) => setNewEmail(e.target.value)}
               />
             </div>
+
+            {/* Existing Customer Detection Banner */}
+            {existingCustomerMatch?.found && existingCustomerMatch.person && (
+              <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-2xl flex items-start gap-3 animate-in fade-in duration-150">
+                <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                <div className="flex-1 text-xs">
+                  <p className="font-extrabold text-blue-900 dark:text-blue-200">
+                    Client existant détecté sur la plateforme !
+                  </p>
+                  <p className="text-blue-700 dark:text-blue-300 mt-0.5">
+                    <strong>{existingCustomerMatch.person.firstName} {existingCustomerMatch.person.lastName}</strong> ({existingCustomerMatch.person.phone}) possède déjà un profil ({existingCustomerMatch.person.origin === 'MARKETPLACE' ? 'Compte Marketplace' : 'Client Boutique'}).
+                  </p>
+                  <p className="text-blue-600 dark:text-blue-400 text-[11px] mt-1 font-semibold">
+                    Voulez-vous l'associer à votre boutique sans créer de doublon ?
+                  </p>
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        const res = dbStore.associateExistingClientToStore({
+                          personId: existingCustomerMatch.person!.id,
+                          tenantId: currentAgencyId,
+                          isLoyalCustomer: true,
+                          notes: newNotes
+                        });
+                        if (res.success) {
+                          showToast('Client Associé', res.message, 'SUCCESS');
+                          setIsCreateModalOpen(false);
+                        }
+                      }}
+                    >
+                      Associer à ma boutique
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Select

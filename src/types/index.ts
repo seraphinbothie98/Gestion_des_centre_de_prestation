@@ -101,6 +101,64 @@ export interface AgencyLicense {
   updatedAt?: string;
 }
 
+export type StoreVerificationStatus = 
+  | 'BROUILLON' 
+  | 'EN_ATTENTE' 
+  | 'EN_REVISION' 
+  | 'INFORMATIONS_DEMANDEES' 
+  | 'APPROUVE' 
+  | 'REFUSE' 
+  | 'ANNULE';
+
+export type StoreCommercialStatus = 
+  | 'EN_ATTENTE_VALIDATION' 
+  | 'VALIDEE' 
+  | 'ESSAI_GRATUIT' 
+  | 'ACTIVE' 
+  | 'SUSPENDUE' 
+  | 'ESSAI_EXPIRE' 
+  | 'ABONNEMENT_EXPIRE' 
+  | 'FERMEE';
+
+export type StoreBusinessType = 'PRODUCTS' | 'SERVICES' | 'PRODUCTS_AND_SERVICES';
+
+export type StoreRejectionReason = 
+  | 'Informations insuffisantes'
+  | 'Informations incohérentes'
+  | 'Boutique déjà existante'
+  | 'Activité non conforme'
+  | 'Tentative d\'usurpation'
+  | 'Autre';
+
+export type ProductPublicationStatus = 
+  | 'DRAFT' 
+  | 'PUBLISHED' 
+  | 'UNPUBLISHED' 
+  | 'DISABLED';
+
+export interface StoreVerification {
+  id: string;
+  storeId: string;
+  storeName: string;
+  submittedBy: string;
+  submittedByName: string;
+  submittedByPhone: string;
+  submittedByEmail?: string;
+  status: StoreVerificationStatus;
+  commercialStatus: StoreCommercialStatus;
+  reviewedBy?: string;
+  reviewedByName?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  rejectionNote?: string;
+  internalAdminNotes?: string;
+  requestedInformation?: string;
+  hasPotentialDuplicate?: boolean;
+  duplicateWarningMessage?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Tenant {
   id: string;
   name: string;
@@ -144,6 +202,40 @@ export interface Tenant {
   activationRequests?: ActivationRequest[];
   licenseHistory?: LicenseHistoryEvent[];
   supportContact?: SupportContactConfig;
+
+  // Store Verification & Authentication System
+  ownerUserId?: string;
+  verificationStatus?: StoreVerificationStatus;
+  commercialStatus?: StoreCommercialStatus;
+  isPhoneVerified?: boolean;
+  isVerifiedStore?: boolean;
+  businessType?: StoreBusinessType;
+  primaryCategory?: string;
+  commune?: string;
+  neighborhood?: string;
+  landmark?: string;
+  coverUrl?: string;
+  isRegisteredBusiness?: boolean;
+  registrationType?: 'RCCM' | 'NIF' | 'AGREMENT' | 'AUTRE';
+  registrationNumber?: string;
+  commercialDocUrl?: string;
+  rejectionReason?: string;
+  rejectionNote?: string;
+  requestedInformation?: string;
+  responsibleRole?: 'Propriétaire' | 'Gérant' | 'Responsable' | 'Autre';
+
+  // Marketplace Extensions (Marketplace Nationale)
+  isOnline?: boolean;
+  lastActiveAt?: string;
+  selectedCategories?: string[];
+  isLiveStreaming?: boolean;
+  liveStreamData?: {
+    title: string;
+    videoUrl?: string;
+    viewerCount?: number;
+    startedAt: string;
+    currentPromotion?: string;
+  };
 
   settings: Record<string, any> & {
     branding?: BrandingConfig;
@@ -218,7 +310,8 @@ export type RoleCode =
   | 'OPERATEUR'
   | 'RESPONSABLE_FORMATION'
   | 'FORMATEUR'
-  | 'MAGASINIER';
+  | 'MAGASINIER'
+  | 'CLIENT';
 
 export interface Role {
   id: string;
@@ -250,8 +343,11 @@ export interface User {
   username: string;
   email: string;
   phone?: string;
-  passwordHash: string;
-  department: DepartmentCode | string;
+  city?: string;
+  address?: string;
+  password?: string;
+  passwordHash?: string;
+  department?: DepartmentCode | string;
   avatarUrl?: string;
   isActive: boolean;
   role?: string;
@@ -269,6 +365,13 @@ export interface User {
   lastSuccessfulLoginAt?: string;
   lockedReason?: string;
 
+  birthDate?: string;
+  commune?: string;
+  district?: string;
+  preferences?: {
+    orderNotifications?: boolean;
+    promoOffers?: boolean;
+  };
   createdAt: string;
 }
 
@@ -283,6 +386,22 @@ export interface UserProfileUpdateData {
 
 export type PersonType = 'CUSTOMER' | 'LEARNER' | 'TRAINER' | 'STAFF' | 'OTHER';
 
+export interface ClientStoreRelation {
+  id: string;
+  personId: string;
+  userId?: string;
+  tenantId: string;
+  tenantName?: string;
+  registeredByTenantId: string; // 'MARKETPLACE' or specific tenantId
+  isLoyalCustomer: boolean;
+  notes?: string;
+  totalOrdersCount: number;
+  totalSpentAmount: number;
+  lastPurchaseDate?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Person {
   id: string;
   tenantId: string;
@@ -290,12 +409,18 @@ export interface Person {
   lastName: string;
   phone?: string;
   email?: string;
+  city?: string;
+  commune?: string;
   address?: string;
   idCardNumber?: string;
   photoUrl?: string;
   types: PersonType[];
   notes?: string;
   isActive: boolean;
+  origin?: 'MARKETPLACE' | 'STORE_REGISTERED';
+  registeredByTenantId?: string;
+  registeredByTenantName?: string;
+  status?: 'ACTIVE' | 'SUSPENDED';
   createdAt: string;
   updatedAt?: string;
   
@@ -361,6 +486,56 @@ export interface ServiceConsumableConfig {
   notes?: string;
 }
 
+export interface ServiceOption {
+  id: string;
+  name: string; // e.g. "Format", "Mode", "Type d'impression", "Papier", "Durée", "Finition"
+  values: string[]; // e.g. ["A4", "A3"], ["Noir & blanc", "Couleur"]
+  isRequired?: boolean;
+}
+
+export interface ServiceConsumableRule {
+  productId: string;
+  productName?: string;
+  productCode?: string;
+  quantityPerUnit: number; // e.g. 1 feuille, 10 feuilles, 1 spirale
+  unit?: string; // e.g. "feuille", "unité", "mètre"
+  storeId?: string;
+  isClientSupplied?: boolean;
+  isVariableWithQuantity?: boolean;
+}
+
+export interface ServiceConfiguration {
+  id: string;
+  serviceId: string;
+  optionValues: Record<string, string>; // e.g. { "Format": "A4", "Mode": "Noir & blanc", ... }
+  price: number; // Tarif unitaire en GNF
+  billingUnit: string; // Unité de facturation (ex: "page", "exemplaire", "heure", "prestation")
+  consumables: ServiceConsumableRule[];
+  isActive: boolean;
+  code?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ServiceSpecificationOption {
+  id?: string;
+  name: string; // e.g. "A4", "A3", "160g Bristol", "Noir & Blanc"
+  unitPrice?: number; // Specific unit price when this option is chosen (e.g. 500 GNF vs 1000 GNF)
+  priceAdjustment?: number; // Price delta (e.g. +500 GNF)
+  productId?: string; // Linked consumable product in stock (e.g. "prod-01")
+  productName?: string; // Linked consumable product name
+  quantityPerUnit?: number; // Consumed quantity per service unit (e.g. 1 feuille)
+  consumableUnit?: string; // e.g. "feuille"
+  consumables?: Array<{ productId: string; productName?: string; quantityPerUnit: number; unit?: string }>;
+}
+
+export interface ServiceSpecificationGroup {
+  id?: string;
+  name: string; // e.g. "Format", "Mode", "Papier", "Impression"
+  options: (string | ServiceSpecificationOption)[];
+  defaultValue?: string; // e.g. "A4"
+}
+
 export interface Service {
   id: string;
   tenantId: string;
@@ -376,10 +551,13 @@ export interface Service {
   estimatedDurationMinutes: number;
   isActive: boolean;
   pricingRules: ServicePricingRule[];
+  options?: ServiceOption[];
+  configurations?: ServiceConfiguration[];
   consumableMode?: ConsumableMode;
   consumables?: ServiceConsumableConfig[];
   isClientSupportAllowed?: boolean; // Client can bring their own item (e.g. t-shirt for pressage)
   consumptions?: { productId: string; quantity: number }[];
+  specificationGroups?: ServiceSpecificationGroup[];
   updatedAt?: string;
 }
 
@@ -445,7 +623,11 @@ export interface OrderItem {
   category?: string;
   description?: string;
   quantity: number;
+  requestedQuantity?: number; // Quantité demandée initialement par le client
+  validatedQuantity?: number; // Quantité effectivement validée par le vendeur
   unit: string;
+  publicUnit?: string; // Unité de vente publique (ex: Paquet, Carton, Pièce)
+  productImageUrl?: string; // Image miniature du produit commandé
   purchaseUnitName?: string;
   conversionFactor?: number;
   
@@ -529,16 +711,21 @@ export type CustomerType = 'REGISTERED' | 'WALK_IN';
 
 export type PaymentStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'REFUNDED';
 
+export type OrderSource = 'INTERNAL' | 'BOUTIQUE_POS' | 'MARKETPLACE' | 'PRESTATION';
+
 export interface Order {
   id: string;
   tenantId: string;
   branchId?: string;
   orderNumber: string;
+  orderSource?: OrderSource; // 'INTERNAL' | 'BOUTIQUE_POS' | 'MARKETPLACE' | 'PRESTATION'
   customerType?: CustomerType; // 'REGISTERED' (client enregistré) or 'WALK_IN' (client de passage)
   personId?: string;
   personName: string;
   personPhone?: string;
   personEmail?: string;
+  clientCity?: string; // Ville de destination (ex: Conakry, Kindia, Kankan, etc.)
+  deliveryAddress?: string; // Adresse / Quartier de livraison
   status: OrderStatus;
   paymentStatus?: PaymentStatus;
   deliveryStatus?: 'UNDELIVERED' | 'PARTIALLY_DELIVERED' | 'DELIVERED';
@@ -568,8 +755,22 @@ export interface Order {
   qrCodeData?: string;
   createdBy?: string;
   createdByName?: string;
+  isReadByMerchant?: boolean; // Pour le compteur de nouvelles commandes marketplace non lues
+  trackingEvents?: OrderTrackingEvent[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface OrderTrackingEvent {
+  id: string;
+  orderId: string;
+  status: OrderStatus | 'ORDER_PLACED' | 'PAYMENT_RECEIVED' | 'IN_DELIVERY' | 'DELIVERED';
+  title: string;
+  description: string;
+  timestamp: string;
+  actorName?: string;
+  actorRole?: string;
+  isCompleted: boolean;
 }
 
 export interface ProductionJob {
@@ -1171,6 +1372,22 @@ export interface Product {
   // Conversion configuration history
   conversionHistory?: ProductPackagingHistory[];
   
+  // Marketplace & E-commerce Extensions (Marketplace Nationale)
+  images?: string[]; // Multiple photos gallery (1 to 4 photos)
+  photos?: string[]; // Alias for images gallery
+  photoUrl?: string; // Main photo URL alias
+  videoUrl?: string; // Optional explanatory video URL
+  publicUnit?: string; // Public selling unit displayed to customer (e.g. "Carton", "Paquet", "Sac 50kg")
+  publicPrice?: number; // Commercial sale price per publicUnit (e.g. 35 000 GNF/paquet)
+  pricingTiers?: { unit: string; price: number; conversionFactor?: number }[];
+  conversionFactorToStockUnit?: number; // Conversion factor from publicUnit to base stock unit (e.g. 500)
+  subcategory?: string; // Optional subcategory
+  isMarketplacePublished?: boolean; // Visibility on public marketplace
+  publicationStatus?: ProductPublicationStatus; // 'DRAFT' | 'PUBLISHED' | 'UNPUBLISHED' | 'DISABLED'
+  publishedAt?: string;
+  unpublishedAt?: string;
+  featuredBadge?: string; // "TOP VENTE", "POPULAIRE", "NOUVEAU"
+
   supplierId?: string;
   supplierName?: string;
   location?: string;
@@ -1414,7 +1631,10 @@ export interface Invoice {
 export interface AppNotification {
   id: string;
   tenantId: string;
+  boutiqueId?: string;
   userId?: string;
+  serviceId?: string;
+  orderId?: string;
   title: string;
   message: string;
   type: 'INFO' | 'SUCCESS' | 'WARNING' | 'DANGER';
@@ -1586,6 +1806,59 @@ export interface ResetExecutionResult {
     brandingPreserved: boolean;
     servicesPreserved: boolean;
   };
+}
+
+export interface MarketplaceMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderType: 'CUSTOMER' | 'BOUTIQUE' | 'STAFF' | 'ADMIN';
+  senderName: string;
+  senderRole?: string; // e.g. 'Client', 'Vendeur', 'Gérant', 'Accueil / Réception', 'Administrateur'
+  content: string;
+  messageType?: 'TEXT' | 'IMAGE' | 'ORDER_REF' | 'PRODUCT_REF';
+  imageUrl?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface MarketplaceConversation {
+  id: string;
+  customerId: string;
+  customerName: string;
+  customerPhone?: string;
+  boutiqueId: string; // tenantId
+  boutiqueName: string;
+  productId?: string;
+  publicationId?: string;
+  productName?: string;
+  productImageUrl?: string;
+  publicPrice?: number;
+  publicUnit?: string;
+  orderId?: string;
+  orderCode?: string;
+  orderTotal?: number;
+  serviceId?: string;
+  serviceName?: string;
+  lastMessageContent?: string;
+  lastMessageAt: string;
+  lastSenderRole?: string;
+  unreadByBoutique: number;
+  unreadByCustomer: number;
+  status?: 'OPEN' | 'ARCHIVED' | 'CLOSED';
+  messages?: MarketplaceMessage[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface MarketplaceCategoryItem {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  icon?: string;
+  displayOrder?: number;
+  isActive?: boolean;
 }
 
 

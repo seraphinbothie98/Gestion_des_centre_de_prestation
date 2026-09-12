@@ -13,17 +13,119 @@ import { checkDiscountPermission } from '../../lib/pricingEngine';
 import { evaluateTenantSubscription } from '../../lib/licenseEngine';
 import { formatCurrency, generateDocNumber } from '../../lib/utils';
 import {
-  Service, Person, OrderItem, OrderFile, OrderPriority, PaymentMethod,
-  Product, ProductionJob, DiscountAudit, PurchaseOrder
+  Service, Person, OrderItem, OrderFile, OrderPriority, PaymentMethod, Payment, Order,
+  Product, ProductionJob, DiscountAudit, PurchaseOrder,
+  ServiceSpecificationOption, ServiceSpecificationGroup
 } from '../../types';
 import {
   Plus, Trash2, UploadCloud, CheckCircle2, UserPlus, ShoppingBag,
   Percent, Tag, ShieldAlert, Sparkles, Minus, AlertCircle, Info, FileText,
   Lock, Unlock, Store, Wrench, Layers, AlertTriangle, Paperclip,
-  Users, Search, Truck, RotateCcw, Boxes, ArrowRight
+  Users, Search, Truck, RotateCcw, Boxes, ArrowRight, Check, Settings2, Clock,
+  Printer, ShieldCheck
 } from 'lucide-react';
 import { OpenCashModal } from '../cash/OpenCashModal';
-import { calculateOrderStockRequirements, evaluateOrderStock, StockEvaluation, resolveProductPurchasePrice } from '../../lib/stockEngine';
+import { PaymentReceiptModal } from './PaymentReceiptModal';
+import { calculateOrderStockRequirements, evaluateOrderStock, StockEvaluation, resolveProductPurchasePrice, calculateEffectiveServiceConsumableQty } from '../../lib/stockEngine';
+
+// Helper to get visual cues (icon, badge color, category) for any service dynamically
+function getServiceVisuals(service: Service) {
+  const nameLower = (service.name || '').toLowerCase();
+  const codeLower = (service.code || '').toLowerCase();
+  const catLower = (service.categoryName || '').toLowerCase();
+
+  if (nameLower.includes('photocopi') || codeLower.includes('photo-') || nameLower.includes('copie')) {
+    return {
+      icon: '📄',
+      badgeColor: 'bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800',
+      categoryTag: 'Photocopie',
+    };
+  }
+  if (nameLower.includes('impress') || codeLower.includes('print') || nameLower.includes('laser') || nameLower.includes('jet d\'encre')) {
+    return {
+      icon: '🖨️',
+      badgeColor: 'bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800',
+      categoryTag: 'Impression',
+    };
+  }
+  if (nameLower.includes('reliur') || codeLower.includes('reliure') || nameLower.includes('spirale') || nameLower.includes('thermoreliure')) {
+    return {
+      icon: '📚',
+      badgeColor: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
+      categoryTag: 'Reliure',
+    };
+  }
+  if (nameLower.includes('plastif') || codeLower.includes('plastif') || nameLower.includes('pochette')) {
+    return {
+      icon: '🗂️',
+      badgeColor: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
+      categoryTag: 'Plastification',
+    };
+  }
+  if (nameLower.includes('t-shirt') || nameLower.includes('tshirt') || nameLower.includes('sublim') || nameLower.includes('pressage') || nameLower.includes('flocage') || nameLower.includes('textile')) {
+    return {
+      icon: '👕',
+      badgeColor: 'bg-purple-500/10 text-purple-600 border-purple-200 dark:border-purple-800',
+      categoryTag: 'Textile / Sublimation',
+    };
+  }
+  if (nameLower.includes('format') || nameLower.includes('cours') || nameLower.includes('atelier') || catLower.includes('format')) {
+    return {
+      icon: '🎓',
+      badgeColor: 'bg-teal-500/10 text-teal-600 border-teal-200 dark:border-teal-800',
+      categoryTag: 'Formation',
+    };
+  }
+  if (nameLower.includes('scan') || nameLower.includes('numéris') || codeLower.includes('scan')) {
+    return {
+      icon: '🔍',
+      badgeColor: 'bg-cyan-500/10 text-cyan-600 border-cyan-200 dark:border-cyan-800',
+      categoryTag: 'Numérisation',
+    };
+  }
+  if (nameLower.includes('photo') || nameLower.includes('identit') || codeLower.includes('photo')) {
+    return {
+      icon: '📸',
+      badgeColor: 'bg-rose-500/10 text-rose-600 border-rose-200 dark:border-rose-800',
+      categoryTag: 'Photo',
+    };
+  }
+  if (nameLower.includes('infograph') || nameLower.includes('design') || nameLower.includes('graphism') || nameLower.includes('logo') || nameLower.includes('affiche')) {
+    return {
+      icon: '🎨',
+      badgeColor: 'bg-violet-500/10 text-violet-600 border-violet-200 dark:border-violet-800',
+      categoryTag: 'Infographie',
+    };
+  }
+  if (nameLower.includes('tampon') || nameLower.includes('cachet') || nameLower.includes('gravur')) {
+    return {
+      icon: '🏷️',
+      badgeColor: 'bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-800',
+      categoryTag: 'Cachet & Tampon',
+    };
+  }
+  return {
+    icon: '🛠️',
+    badgeColor: 'bg-slate-500/10 text-slate-600 border-slate-200 dark:border-slate-800',
+    categoryTag: service.categoryName || 'Prestation',
+  };
+}
+
+// Helper to auto-assign the best matching department when a service is picked
+function getDepartmentForService(service: Service): 'DESIGN' | 'PRINT' | 'FINISHING' | 'PHOTOCOPY' | 'PHOTO' | 'OTHER' {
+  const nameLower = (service.name || '').toLowerCase();
+  const codeLower = (service.code || '').toLowerCase();
+  if (nameLower.includes('photocopi') || codeLower.includes('photo-') || nameLower.includes('copie')) return 'PHOTOCOPY';
+  if (nameLower.includes('impress') || codeLower.includes('print') || nameLower.includes('scan') || nameLower.includes('numéris')) return 'PRINT';
+  if (nameLower.includes('reliur') || nameLower.includes('plastif') || codeLower.includes('reliure') || codeLower.includes('plastif')) return 'FINISHING';
+  if (nameLower.includes('photo') || nameLower.includes('identit')) return 'PHOTO';
+  if (nameLower.includes('infograph') || nameLower.includes('design') || nameLower.includes('logo')) return 'DESIGN';
+  return 'PRINT';
+}
+
+// Re-export specifications engine
+export { getServiceSpecificationGroups, resolveSpecOption, getSelectedSpecOption, resolveServiceSpecsImpact } from '../../lib/serviceSpecs';
+import { getServiceSpecificationGroups, resolveSpecOption, getSelectedSpecOption, resolveServiceSpecsImpact } from '../../lib/serviceSpecs';
 
 interface QuickOrderModalProps {
   isOpen: boolean;
@@ -36,7 +138,9 @@ interface OrderFormLine {
   itemType: 'SERVICE' | 'PRODUCT';
   serviceId?: string;
   productId?: string;
-  quantity: number;
+  pageCount?: number; // Nombre de pages du document original (ex: 5)
+  copiesCount?: number; // Nombre d'exemplaires / tirages (ex: 20)
+  quantity: number; // Total à produire et facturer = pageCount * copiesCount
   unit: string;
   purchaseUnitName?: string;
   conversionFactor?: number;
@@ -102,8 +206,25 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
   const [isOpenCashModalOpen, setIsOpenCashModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Customer Mode & State: REGISTERED vs WALK_IN
-  const [clientMode, setClientMode] = useState<'REGISTERED' | 'WALK_IN'>('REGISTERED');
+  // Success Confirmation State for rapid successive orders
+  const [createdOrderSummary, setCreatedOrderSummary] = useState<{
+    id: string;
+    orderNumber: string;
+    clientName: string;
+    totalAmount: number;
+    paidAmount: number;
+    dueAmount: number;
+    paymentStatus: string;
+    status: string;
+    linesCount: number;
+  } | null>(null);
+
+  const [isValidatingDelivery, setIsValidatingDelivery] = useState(false);
+  const [receiptPayment, setReceiptPayment] = useState<any | null>(null);
+  const [receiptOrder, setReceiptOrder] = useState<any | null>(null);
+
+  // Customer Mode & State: REGISTERED vs WALK_IN (Default: WALK_IN / Client de Passage)
+  const [clientMode, setClientMode] = useState<'REGISTERED' | 'WALK_IN'>('WALK_IN');
   const [selectedPersonId, setSelectedPersonId] = useState<string>(
     (state.persons || []).find(p => p.tenantId === tenantId)?.id || state.persons[0]?.id || ''
   );
@@ -119,18 +240,23 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
 
   // Form Lines State
   const defaultInitialService = tenantServices[0] || state.services[0];
+  const initialSpecs = getServiceSpecificationGroups(defaultInitialService);
+  const initialNotes = initialSpecs.map(g => `${g.name}: ${g.defaultValue || g.options[0]}`).join(' | ');
+
   const [lines, setLines] = useState<OrderFormLine[]>([
     {
       id: `line-${Date.now()}-1`,
       itemType: 'SERVICE',
       serviceId: defaultInitialService?.id || '',
+      pageCount: 1,
+      copiesCount: 1,
       quantity: 1,
       unit: defaultInitialService?.unit || 'page',
       isCustomPrice: false,
       discountReasonCategory: 'COMMERCIAL_NEGOTIATION',
       discountReasonCustom: '',
       assignedDepartment: 'PHOTOCOPY',
-      notes: '',
+      notes: initialNotes,
       files: [],
     }
   ]);
@@ -166,11 +292,15 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
   // Complete Reset of Form State to Initial Values
   const resetForm = () => {
     const defaultSrv = tenantServices[0] || state.services[0];
+    const srvSpecs = getServiceSpecificationGroups(defaultSrv);
+    const defaultNotes = srvSpecs.map(g => `${g.name}: ${g.defaultValue || g.options[0]}`).join(' | ');
     setLines([
       {
         id: `line-${Date.now()}-1`,
         itemType: 'SERVICE',
         serviceId: defaultSrv?.id || '',
+        pageCount: 1,
+        copiesCount: 1,
         quantity: 1,
         unit: defaultSrv?.unit || 'page',
         isCustomPrice: false,
@@ -178,11 +308,11 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
         discountReasonCategory: 'COMMERCIAL_NEGOTIATION',
         discountReasonCustom: '',
         assignedDepartment: 'PHOTOCOPY',
-        notes: '',
+        notes: defaultNotes,
         files: [],
       }
     ]);
-    setClientMode('REGISTERED');
+    setClientMode('WALK_IN');
     setSelectedPersonId((state.persons || []).find(p => p.tenantId === tenantId)?.id || state.persons[0]?.id || '');
     setClientSearchQuery('');
     setWalkInName('');
@@ -234,7 +364,8 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
     return lines.map(line => {
       if (line.itemType === 'SERVICE') {
         const srv = tenantServices.find(s => s.id === line.serviceId) || state.services.find(s => s.id === line.serviceId);
-        const standardUnitPrice = srv?.basePrice || 0;
+        const specsImpact = srv ? resolveServiceSpecsImpact(srv, line.notes, state.products) : null;
+        const standardUnitPrice = specsImpact ? specsImpact.standardUnitPrice : (srv?.basePrice || 0);
         const appliedUnitPrice = line.isCustomPrice && line.customUnitPrice !== undefined
           ? line.customUnitPrice
           : standardUnitPrice;
@@ -493,19 +624,23 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
   // Add Service Line
   const handleAddServiceLine = () => {
     const defaultSrv = state.services.find(s => s.isActive) || state.services[0];
+    const srvSpecs = getServiceSpecificationGroups(defaultSrv);
+    const defaultNotes = srvSpecs.map(g => `${g.name}: ${g.defaultValue || g.options[0]}`).join(' | ');
     setLines(prev => [
       ...prev,
       {
         id: `line-${Date.now()}-${prev.length + 1}`,
         itemType: 'SERVICE',
         serviceId: defaultSrv?.id || '',
+        pageCount: 1,
+        copiesCount: 1,
         quantity: 1,
         unit: defaultSrv?.unit || 'page',
         isCustomPrice: false,
         discountReasonCategory: 'COMMERCIAL_NEGOTIATION',
         discountReasonCustom: '',
         assignedDepartment: 'PRINT',
-        notes: '',
+        notes: defaultNotes,
         files: [],
       }
     ]);
@@ -542,11 +677,31 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
     }
   };
 
-  // Update Line Field
+  // Update Line Field with dynamic reactive calculation for pageCount * copiesCount
   const handleUpdateLine = (index: number, updates: Partial<OrderFormLine>) => {
     setLines(prev => {
       const copy = [...prev];
-      copy[index] = { ...copy[index], ...updates };
+      const current = copy[index];
+      let newPageCount = updates.pageCount !== undefined ? updates.pageCount : current.pageCount;
+      let newCopiesCount = updates.copiesCount !== undefined ? updates.copiesCount : current.copiesCount;
+      let newQuantity = updates.quantity !== undefined ? updates.quantity : current.quantity;
+
+      // Recompute total quantity whenever pageCount or copiesCount is edited
+      if (updates.pageCount !== undefined || updates.copiesCount !== undefined) {
+        const p = Math.max(1, newPageCount !== undefined ? Number(newPageCount) : 1);
+        const c = Math.max(1, newCopiesCount !== undefined ? Number(newCopiesCount) : 1);
+        newPageCount = p;
+        newCopiesCount = c;
+        newQuantity = p * c;
+      }
+
+      copy[index] = {
+        ...current,
+        ...updates,
+        pageCount: newPageCount,
+        copiesCount: newCopiesCount,
+        quantity: newQuantity,
+      };
       return copy;
     });
   };
@@ -696,6 +851,8 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
         assignedDepartment: line.assignedDepartment,
         assignedToUserName: line.itemType === 'PRODUCT' ? performedBy : undefined,
         notes: line.notes,
+        pageCount: line.pageCount,
+        copiesCount: line.copiesCount,
         stockDeducted: line.itemType === 'PRODUCT',
         stockProductId: line.productId,
         stockQuantityDeducted: line.itemType === 'PRODUCT' ? line.stockDeduction : undefined,
@@ -890,27 +1047,221 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
 
       showToast('Dossier Commercial Validé 🟢', `Dossier commercial ${orderNumber} créé et validé avec succès (${orderItems.length} ligne(s)).`, 'SUCCESS');
       
-      // Complete reset of the form state so it's ready for the next order
-      resetForm();
+      // Stocke le résumé de la commande validée pour affichage de la confirmation et enchaînement
+      setCreatedOrderSummary({
+        id: orderId,
+        orderNumber,
+        clientName: finalPersonName,
+        totalAmount: totals.totalAmount,
+        paidAmount: paymentAmount,
+        dueAmount: totals.dueAmount,
+        paymentStatus: finalPaymentStatus,
+        status: 'PENDING',
+        linesCount: orderItems.length,
+      });
       setIsSubmitting(false);
 
       onOrderCreated?.(orderId);
-      onClose();
     } catch (error) {
       setIsSubmitting(false);
       showToast('Erreur', "Une erreur inattendue est survenue lors de l'enregistrement du dossier commercial.", 'DANGER');
     }
   };
 
+  const handleModalClose = () => {
+    setCreatedOrderSummary(null);
+    setReceiptPayment(null);
+    setReceiptOrder(null);
+    onClose();
+  };
+
+  const handleValidateAndDeliver = () => {
+    if (!createdOrderSummary) return;
+    if (createdOrderSummary.status === 'DELIVERED') return;
+
+    setIsValidatingDelivery(true);
+    try {
+      const performedBy = currentUser ? {
+        id: currentUser.id,
+        name: `${currentUser.firstName} ${currentUser.lastName}`
+      } : {
+        id: 'usr-admin',
+        name: 'Caissier'
+      };
+
+      const res = dbStore.deliverCommercialOrder(
+        createdOrderSummary.id,
+        currentTenant?.id || 't-001',
+        performedBy
+      );
+
+      if (res.success) {
+        setCreatedOrderSummary(prev => prev ? { ...prev, status: 'DELIVERED' } : null);
+        showToast('Commande Livrée 🟢', res.message, 'SUCCESS');
+      } else {
+        showToast('Validation Impossible ⚠️', res.message, 'DANGER');
+      }
+    } catch (err) {
+      showToast('Erreur', "Une erreur inattendue est survenue lors de la validation.", 'DANGER');
+    } finally {
+      setIsValidatingDelivery(false);
+    }
+  };
+
+  const handlePrintReceipt = () => {
+    if (!createdOrderSummary) return;
+    const currentOrder = (state.orders || []).find(o => o.id === createdOrderSummary.id);
+    const existingPayment = ((state.payments || []) as any[]).find(p => p.orderId === createdOrderSummary.id) as Payment | undefined;
+    const resolvedMethod: PaymentMethod = existingPayment ? existingPayment.paymentMethod : paymentMethod;
+
+    const fallbackPayment: Payment = existingPayment || {
+      id: `pay-${createdOrderSummary.id}`,
+      tenantId: currentTenant?.id || 't-001',
+      personId: currentOrder?.personId || 'client-walk-in',
+      personName: createdOrderSummary.clientName,
+      targetType: 'ORDER',
+      orderId: createdOrderSummary.id,
+      orderNumber: createdOrderSummary.orderNumber,
+      paymentNumber: `REC-${createdOrderSummary.orderNumber}`,
+      amount: createdOrderSummary.paidAmount,
+      balanceBefore: createdOrderSummary.totalAmount,
+      balanceAfter: createdOrderSummary.dueAmount,
+      paymentType: createdOrderSummary.dueAmount === 0 ? 'BALANCE_PAYMENT' : 'ADVANCE',
+      paymentMethod: resolvedMethod,
+      reference: `Reçu commande ${createdOrderSummary.orderNumber}`,
+      receivedByUserName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'Caisse',
+      createdAt: currentOrder?.createdAt || new Date().toISOString()
+    };
+
+    setReceiptPayment(fallbackPayment);
+    setReceiptOrder(currentOrder || null);
+  };
+
   return (
     <>
       <Modal
         isOpen={isOpen}
-        onClose={onClose}
-        title="Nouvelle Commande Multi-Prestations & Fournitures"
+        onClose={handleModalClose}
+        title={createdOrderSummary ? "Confirmation — Commande Validée" : "Nouvelle Commande Multi-Prestations & Fournitures"}
         maxWidth="2xl"
       >
-        <form onSubmit={handleSubmitOrder} className="space-y-5 pt-1">
+        {createdOrderSummary ? (
+          <div className="py-6 px-4 sm:px-8 space-y-6 text-center">
+            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-500 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-md">
+              <CheckCircle2 className="w-10 h-10" />
+            </div>
+
+            <div className="space-y-1">
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                Commande Validée avec Succès !
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                La commande <span className="font-mono font-bold text-slate-800 dark:text-slate-200">#{createdOrderSummary.orderNumber}</span> a été enregistrée avec succès.
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg mx-auto text-left space-y-2.5 text-xs">
+              <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-800">
+                <span className="text-slate-500 font-medium">N° de Commande :</span>
+                <span className="font-mono font-black text-slate-900 dark:text-white text-sm">#{createdOrderSummary.orderNumber}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-800">
+                <span className="text-slate-500 font-medium">Client :</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{createdOrderSummary.clientName}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-800">
+                <span className="text-slate-500 font-medium">Prestations / Articles :</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{createdOrderSummary.linesCount} ligne(s)</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-800">
+                <span className="text-slate-500 font-medium">Montant Total :</span>
+                <span className="font-black text-brand-600 dark:text-brand-400 text-sm">{formatCurrency(createdOrderSummary.totalAmount)}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-800">
+                <span className="text-slate-500 font-medium">Statut de la commande :</span>
+                {createdOrderSummary.status === 'DELIVERED' ? (
+                  <Badge variant="success" size="sm" className="font-bold text-[11px]">
+                    🟢 Livrée
+                  </Badge>
+                ) : (
+                  <Badge variant="warning" size="sm" className="font-bold text-[11px]">
+                    🟡 Commande validée / En attente de livraison
+                  </Badge>
+                )}
+              </div>
+              <div className="flex justify-between items-center pt-0.5">
+                <span className="text-slate-500 font-medium">Règlement :</span>
+                {(() => {
+                  const isFullyPaid = createdOrderSummary.paymentStatus === 'PAID' || (createdOrderSummary.paidAmount >= createdOrderSummary.totalAmount && createdOrderSummary.totalAmount > 0);
+                  const hasAdvance = createdOrderSummary.paidAmount > 0 && !isFullyPaid;
+
+                  return (
+                    <Badge variant={isFullyPaid ? 'success' : hasAdvance ? 'warning' : 'outline'} size="sm">
+                      {isFullyPaid ? '✅ Payée Intégralement' : hasAdvance ? `⏳ Acompte : ${formatCurrency(createdOrderSummary.paidAmount)}` : '❌ Non Payée (En attente)'}
+                    </Badge>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Delivery & Print Actions */}
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                icon={createdOrderSummary.status === 'DELIVERED' ? ShieldCheck : CheckCircle2}
+                disabled={createdOrderSummary.status === 'DELIVERED' || isValidatingDelivery}
+                onClick={handleValidateAndDeliver}
+                className={
+                  createdOrderSummary.status === 'DELIVERED'
+                    ? 'bg-emerald-600 hover:bg-emerald-600 cursor-default font-extrabold text-xs opacity-90'
+                    : 'bg-emerald-600 hover:bg-emerald-700 font-extrabold text-xs shadow-sm'
+                }
+              >
+                {isValidatingDelivery ? 'Validation en cours...' : createdOrderSummary.status === 'DELIVERED' ? '✓ Commande livrée' : '✓ Valider la commande'}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                icon={Printer}
+                onClick={handlePrintReceipt}
+                className="font-bold text-xs border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                🖨 Imprimer le reçu
+              </Button>
+            </div>
+
+            {/* Successive Order & Close Actions */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                icon={Plus}
+                onClick={() => {
+                  resetForm();
+                  setCreatedOrderSummary(null);
+                }}
+                className="w-full sm:w-auto bg-brand-600 hover:bg-brand-700 font-black px-6 shadow-md shadow-brand-500/20 text-xs"
+              >
+                + Nouvelle commande (Saisir la suivante)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={handleModalClose}
+                className="w-full sm:w-auto font-bold text-xs"
+              >
+                Terminer / Fermer
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmitOrder} className="space-y-5 pt-1">
           {/* 1. Client & Priority Header */}
           <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
             {/* Mode Selector & Priority */}
@@ -1251,110 +1602,488 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
                     {/* Selector & Quantity Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
                       {isService ? (
-                        <div className="sm:col-span-6">
-                          <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                            Prestation / Service *
-                          </label>
-                          <Select
-                            value={line.serviceId}
-                            onChange={(e) => handleUpdateLine(idx, { serviceId: e.target.value })}
-                            className="text-xs"
-                          >
-                            {state.services.filter(s => s.isActive).map(s => (
-                              <option key={s.id} value={s.id}>
-                                {s.name} ({formatCurrency(s.basePrice)}/{s.unit})
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
-                      ) : (
-                        <div className="sm:col-span-6">
-                          <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                            Article de Stock / Boutique *
-                          </label>
-                          <Select
-                            value={line.productId}
-                            onChange={(e) => handleUpdateLine(idx, { productId: e.target.value })}
-                            className="text-xs"
-                          >
-                            {state.products.filter(p => p.isActive).map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} — Dispo : {p.currentStock} {p.unit}s
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
-                      )}
+                        <div className="sm:col-span-12 space-y-3">
+                          {/* Visual Prestation / Service Cards Selection */}
+                          <div>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <label className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                <span>🛠️</span> Prestation / Service *
+                              </label>
+                              <span className="text-[11px] text-slate-500 font-medium">
+                                {(tenantServices.length > 0 ? tenantServices : state.services.filter(s => s.isActive)).length} prestation(s) disponible(s)
+                              </span>
+                            </div>
 
-                      {/* Quantity & Unit Selection */}
-                      <div className="sm:col-span-3">
-                        <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                          Quantité ({line.unit}) *
-                        </label>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleUpdateLine(idx, { quantity: Math.max(1, line.quantity - 1) })}
-                            className="h-8 w-8 p-0 shrink-0"
-                          >
-                            -
-                          </Button>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={line.quantity}
-                            onChange={(e) => handleUpdateLine(idx, { quantity: parseInt(e.target.value) || 1 })}
-                            className="h-8 text-center text-xs font-bold"
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleUpdateLine(idx, { quantity: line.quantity + 1 })}
-                            className="h-8 w-8 p-0 shrink-0"
-                          >
-                            +
-                          </Button>
-                        </div>
-                      </div>
+                            {/* Service Cards Responsive Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                              {(tenantServices.length > 0 ? tenantServices : state.services.filter(s => s.isActive)).map((srv) => {
+                                const isSelected = line.serviceId === srv.id;
+                                const visuals = getServiceVisuals(srv);
 
-                      {/* Department / Pôle */}
-                      {isService ? (
-                        <div className="sm:col-span-3">
-                          <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                            Pôle / Atelier
-                          </label>
-                          <Select
-                            value={line.assignedDepartment}
-                            onChange={(e) => handleUpdateLine(idx, { assignedDepartment: e.target.value as any })}
-                            className="text-xs"
-                          >
-                            <option value="PHOTOCOPY">Photocopie</option>
-                            <option value="PRINT">Impression</option>
-                            <option value="DESIGN">Infographie & Design</option>
-                            <option value="FINISHING">Façonnage & Reliure</option>
-                            <option value="PHOTO">Photo Numérique</option>
-                          </Select>
-                        </div>
-                      ) : (
-                        <div className="sm:col-span-3">
-                          <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                            Conditionnement
-                          </label>
-                          <div className="flex items-center gap-1 pt-1">
-                            <label className="text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={line.usePurchaseUnit}
-                                onChange={(e) => handleUpdateLine(idx, { usePurchaseUnit: e.target.checked })}
-                                className="rounded text-brand-600"
-                              />
-                              Vente en Carton
-                            </label>
+                                return (
+                                  <button
+                                    key={srv.id}
+                                    type="button"
+                                    onClick={() => {
+                                      const autoDept = getDepartmentForService(srv);
+                                      const specGroups = getServiceSpecificationGroups(srv);
+                                      const defaultNotes = specGroups.map(g => {
+                                        const def = g.defaultValue || resolveSpecOption(g.options[0])?.name || '';
+                                        return `${g.name}: ${def}`;
+                                      }).join(' | ');
+                                      handleUpdateLine(idx, {
+                                        serviceId: srv.id,
+                                        unit: srv.unit,
+                                        assignedDepartment: autoDept || line.assignedDepartment,
+                                        notes: defaultNotes,
+                                      });
+                                    }}
+                                    className={`relative flex flex-col justify-between p-3 rounded-xl border-2 text-left transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-brand-500/50 cursor-pointer ${
+                                      isSelected
+                                        ? 'border-brand-500 bg-brand-50/70 dark:bg-brand-950/40 shadow-sm ring-2 ring-brand-500/20 scale-[1.01]'
+                                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 hover:border-brand-300 dark:hover:border-slate-700 hover:bg-slate-50/80 dark:hover:bg-slate-900 hover:shadow-xs'
+                                    }`}
+                                  >
+                                    {/* Selected Badge Checkmark */}
+                                    {isSelected && (
+                                      <span className="absolute top-2 right-2 flex items-center justify-center w-5 h-5 rounded-full bg-brand-600 text-white shadow-xs">
+                                        <Check className="w-3 h-3 stroke-[3]" />
+                                      </span>
+                                    )}
+
+                                    {/* Icon & Category Tag */}
+                                    <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                                      <span className="text-2xl leading-none select-none filter drop-shadow-xs">
+                                        {visuals.icon}
+                                      </span>
+                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border truncate max-w-[85px] ${visuals.badgeColor}`}>
+                                        {visuals.categoryTag}
+                                      </span>
+                                    </div>
+
+                                    {/* Service Name */}
+                                    <div className="mt-1 flex-1">
+                                      <span className={`block text-xs leading-snug line-clamp-2 ${
+                                        isSelected ? 'text-brand-950 dark:text-brand-100 font-extrabold' : 'text-slate-800 dark:text-slate-200 font-bold'
+                                      }`}>
+                                        {srv.name}
+                                      </span>
+                                    </div>
+
+                                    {/* Price & Unit Pill */}
+                                    <div className="mt-2.5 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
+                                      <span className="font-black text-brand-600 dark:text-brand-400">
+                                        {formatCurrency(srv.basePrice)}
+                                      </span>
+                                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                                        / {srv.unit}
+                                      </span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
+
+                          {/* Dynamic Parameters & Specifications for Selected Service (Horizontal Dropdowns) */}
+                          {line.service && (() => {
+                            const srv = line.service;
+                            const specGroups = getServiceSpecificationGroups(srv);
+                            const specsImpact = resolveServiceSpecsImpact(srv, line.notes, state.products);
+
+                            // Helper to extract or fallback the current selected value for a group
+                            const getGroupValue = (group: ServiceSpecificationGroup) => {
+                              const currentNotes = line.notes || '';
+                              const regex = new RegExp(`${group.name}\\s*:\\s*([^|\\n,]+)`, 'i');
+                              const match = currentNotes.match(regex);
+                              const optNames = group.options.map(o => resolveSpecOption(o).name);
+                              if (match && match[1]) {
+                                const found = match[1].trim();
+                                if (optNames.some(n => n.toLowerCase() === found.toLowerCase())) {
+                                  return optNames.find(n => n.toLowerCase() === found.toLowerCase()) || found;
+                                }
+                              }
+                              return group.defaultValue || optNames[0] || '';
+                            };
+
+                            const handleGroupChange = (groupName: string, newValue: string) => {
+                              const currentNotes = line.notes || '';
+                              const regex = new RegExp(`(${groupName}\\s*:\\s*)([^|\\n,]+)`, 'i');
+                              let updated = '';
+                              if (regex.test(currentNotes)) {
+                                updated = currentNotes.replace(regex, `$1${newValue}`);
+                              } else {
+                                updated = currentNotes ? `${currentNotes} | ${groupName}: ${newValue}` : `${groupName}: ${newValue}`;
+                              }
+                              handleUpdateLine(idx, { notes: updated });
+                            };
+
+                            return (
+                              <div className="p-3 bg-slate-50/90 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3 text-xs">
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-2">
+                                  <div className="flex items-center gap-2">
+                                    <Settings2 className="w-4 h-4 text-brand-500" />
+                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px]">
+                                      Paramètres & Spécifications de la prestation
+                                    </span>
+                                    <Badge variant="primary" size="sm" className="font-bold text-[10px]">
+                                      Tarif : {formatCurrency(specsImpact.standardUnitPrice)} / {srv.unit}
+                                    </Badge>
+                                  </div>
+
+                                  {srv.estimatedDurationMinutes > 0 && (
+                                    <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                                      <Clock className="w-3 h-3 text-slate-400" />
+                                      Délai estimé : <strong>~{srv.estimatedDurationMinutes} min</strong>
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Horizontal Dropdowns Grid */}
+                                {specGroups.length > 0 && (
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 items-end">
+                                    {specGroups.map((group) => {
+                                      const val = getGroupValue(group);
+                                      return (
+                                        <div key={group.name} className="space-y-1">
+                                          <label className="text-[10px] font-extrabold text-slate-600 dark:text-slate-400 block uppercase tracking-wider truncate">
+                                            {group.name} :
+                                          </label>
+                                          <Select
+                                            value={val}
+                                            onChange={(e) => handleGroupChange(group.name, e.target.value)}
+                                            className="text-xs h-8 bg-white dark:bg-slate-950 font-bold border-slate-200 dark:border-slate-700 shadow-2xs"
+                                          >
+                                            {group.options.map((optRaw) => {
+                                              const opt = resolveSpecOption(optRaw);
+                                              let label = opt.name;
+                                              if (opt.unitPrice !== undefined && opt.unitPrice > 0) {
+                                                label += ` (${formatCurrency(opt.unitPrice)})`;
+                                              } else if (opt.priceAdjustment !== undefined && opt.priceAdjustment !== 0) {
+                                                label += ` (${opt.priceAdjustment > 0 ? '+' : ''}${formatCurrency(opt.priceAdjustment)})`;
+                                              }
+                                              return (
+                                                <option key={opt.name} value={opt.name}>
+                                                  {label}
+                                                </option>
+                                              );
+                                            })}
+                                          </Select>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* Consumable linked badges indicator with Recto-verso sheet conversion */}
+                                {specsImpact.consumables.length > 0 && (
+                                  <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-slate-500">
+                                    <span className="font-semibold text-slate-600 dark:text-slate-400">📦 Consommables associés :</span>
+                                    {specsImpact.consumables.map((c, cIdx) => {
+                                      const effectiveQty = calculateEffectiveServiceConsumableQty(srv, line, c);
+                                      return (
+                                        <span key={cIdx} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-md font-medium text-[10px]">
+                                          {c.productName} ({effectiveQty} {c.unit})
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* File Requirement Notice if applicable */}
+                                {srv.requiresFile && (
+                                  <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-between gap-2 text-[11px] text-amber-900 dark:text-amber-200">
+                                    <span className="flex items-center gap-1.5 font-medium">
+                                      <Paperclip className="w-3.5 h-3.5 text-amber-600" />
+                                      <span><strong>Fichier requis :</strong> Cette prestation nécessite le document ou fichier numérique du client.</span>
+                                    </span>
+                                    <span className="text-[10px] bg-amber-200/60 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded font-bold shrink-0">
+                                      Fichier à fournir
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Instructions for workshop / custom notes */}
+                                <div>
+                                  <Input
+                                    type="text"
+                                    placeholder="Instructions ou détails supplémentaires pour l'atelier (ex: recto-verso, reliure spirale noire...)"
+                                    value={line.notes || ''}
+                                    onChange={(e) => handleUpdateLine(idx, { notes: e.target.value })}
+                                    className="text-xs h-8 bg-white dark:bg-slate-950"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Quantity & Pôle Grid for Service */}
+                          {(() => {
+                            const srv = state.services.find(s => s.id === line.serviceId) || tenantServices.find(s => s.id === line.serviceId);
+                            const srvName = (srv?.name || '').toLowerCase();
+                            const isPageBased = (
+                              (line.unit || '').toLowerCase() === 'page' ||
+                              (line.unit || '').toLowerCase() === 'feuille' ||
+                              srvName.includes('photocopi') ||
+                              srvName.includes('impress') ||
+                              srvName.includes('scan') ||
+                              srvName.includes('tirage')
+                            );
+
+                            if (isPageBased) {
+                              const pages = line.pageCount ?? 1;
+                              const copies = line.copiesCount ?? 1;
+                              const totalPages = pages * copies;
+
+                              return (
+                                <div className="space-y-2 pt-1">
+                                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                                    {/* Pages du document */}
+                                    <div className="sm:col-span-4">
+                                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                                        📄 Pages du document *
+                                      </label>
+                                      <div className="flex items-center gap-1">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleUpdateLine(idx, { pageCount: Math.max(1, pages - 1) })}
+                                          className="h-8 w-8 p-0 shrink-0"
+                                        >
+                                          -
+                                        </Button>
+                                        <Input
+                                          type="number"
+                                          min="1"
+                                          value={pages}
+                                          onChange={(e) => handleUpdateLine(idx, { pageCount: parseInt(e.target.value) || 1 })}
+                                          className="h-8 text-center text-xs font-bold"
+                                        />
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleUpdateLine(idx, { pageCount: pages + 1 })}
+                                          className="h-8 w-8 p-0 shrink-0"
+                                        >
+                                          +
+                                        </Button>
+                                      </div>
+                                    </div>
+
+                                    {/* Nombre d'exemplaires */}
+                                    <div className="sm:col-span-4">
+                                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                                        📑 Nombre d'exemplaires *
+                                      </label>
+                                      <div className="flex items-center gap-1">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleUpdateLine(idx, { copiesCount: Math.max(1, copies - 1) })}
+                                          className="h-8 w-8 p-0 shrink-0"
+                                        >
+                                          -
+                                        </Button>
+                                        <Input
+                                          type="number"
+                                          min="1"
+                                          value={copies}
+                                          onChange={(e) => handleUpdateLine(idx, { copiesCount: parseInt(e.target.value) || 1 })}
+                                          className="h-8 text-center text-xs font-bold"
+                                        />
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleUpdateLine(idx, { copiesCount: copies + 1 })}
+                                          className="h-8 w-8 p-0 shrink-0"
+                                        >
+                                          +
+                                        </Button>
+                                      </div>
+                                    </div>
+
+                                    {/* Department / Pôle */}
+                                    <div className="sm:col-span-4">
+                                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                                        Pôle / Atelier
+                                      </label>
+                                      <Select
+                                        value={line.assignedDepartment}
+                                        onChange={(e) => handleUpdateLine(idx, { assignedDepartment: e.target.value as any })}
+                                        className="text-xs h-8"
+                                      >
+                                        <option value="PHOTOCOPY">Photocopie</option>
+                                        <option value="PRINT">Impression</option>
+                                        <option value="DESIGN">Infographie & Design</option>
+                                        <option value="FINISHING">Façonnage & Reliure</option>
+                                        <option value="PHOTO">Photo Numérique</option>
+                                      </Select>
+                                    </div>
+                                  </div>
+
+                                  {/* Dynamic Live Calculation Card */}
+                                  {(() => {
+                                    const isRectoVerso = (line.notes || '').toLowerCase().includes('recto-verso') || (line.notes || '').toLowerCase().includes('recto verso');
+                                    const sheetsPerCopy = isRectoVerso ? Math.ceil(pages / 2) : pages;
+                                    const totalSheets = sheetsPerCopy * copies;
+
+                                    return (
+                                      <div className="p-2.5 bg-brand-50/80 dark:bg-brand-950/40 border border-brand-200 dark:border-brand-800 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="font-extrabold text-brand-700 dark:text-brand-300 flex items-center gap-1">
+                                            🧮 Total à produire :
+                                          </span>
+                                          <span className="font-bold text-slate-800 dark:text-slate-200">
+                                            {pages} page(s) × {copies} ex. = <strong className="text-brand-600 dark:text-brand-400 font-black text-sm">{totalPages} {line.unit}s au total</strong>
+                                            {isRectoVerso && (
+                                              <span className="ml-1.5 px-2 py-0.5 bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700 rounded-md font-extrabold text-[11px]">
+                                                📄 {totalSheets} feuille(s) en Recto-verso ({sheetsPerCopy} f./ex.)
+                                              </span>
+                                            )}
+                                          </span>
+                                        </div>
+                                        <div className="text-[11px] text-slate-500 font-medium">
+                                          Tarif : {totalPages} × {formatCurrency(line.appliedUnitPrice)} = <span className="font-black text-slate-900 dark:text-white">{formatCurrency(line.netTotal)}</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end pt-1">
+                                {/* Quantity & Unit Selection */}
+                                <div className="sm:col-span-6">
+                                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                                    Quantité ({line.unit}) *
+                                  </label>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleUpdateLine(idx, { quantity: Math.max(1, line.quantity - 1) })}
+                                      className="h-8 w-8 p-0 shrink-0"
+                                    >
+                                      -
+                                    </Button>
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      value={line.quantity}
+                                      onChange={(e) => handleUpdateLine(idx, { quantity: parseInt(e.target.value) || 1 })}
+                                      className="h-8 text-center text-xs font-bold"
+                                    />
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleUpdateLine(idx, { quantity: line.quantity + 1 })}
+                                      className="h-8 w-8 p-0 shrink-0"
+                                    >
+                                      +
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* Department / Pôle */}
+                                <div className="sm:col-span-6">
+                                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                                    Pôle / Atelier
+                                  </label>
+                                  <Select
+                                    value={line.assignedDepartment}
+                                    onChange={(e) => handleUpdateLine(idx, { assignedDepartment: e.target.value as any })}
+                                    className="text-xs h-8"
+                                  >
+                                    <option value="PHOTOCOPY">Photocopie</option>
+                                    <option value="PRINT">Impression</option>
+                                    <option value="DESIGN">Infographie & Design</option>
+                                    <option value="FINISHING">Façonnage & Reliure</option>
+                                    <option value="PHOTO">Photo Numérique</option>
+                                  </Select>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
+                      ) : (
+                        <>
+                          <div className="sm:col-span-6">
+                            <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                              Article de Stock / Boutique *
+                            </label>
+                            <Select
+                              value={line.productId}
+                              onChange={(e) => handleUpdateLine(idx, { productId: e.target.value })}
+                              className="text-xs"
+                            >
+                              {state.products.filter(p => p.isActive).map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} — Dispo : {p.currentStock} {p.unit}s
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+
+                          {/* Quantity & Unit Selection */}
+                          <div className="sm:col-span-3">
+                            <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                              Quantité ({line.unit}) *
+                            </label>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUpdateLine(idx, { quantity: Math.max(1, line.quantity - 1) })}
+                                className="h-8 w-8 p-0 shrink-0"
+                              >
+                                -
+                              </Button>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={line.quantity}
+                                onChange={(e) => handleUpdateLine(idx, { quantity: parseInt(e.target.value) || 1 })}
+                                className="h-8 text-center text-xs font-bold"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUpdateLine(idx, { quantity: line.quantity + 1 })}
+                                className="h-8 w-8 p-0 shrink-0"
+                              >
+                                +
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Packaging / Unit */}
+                          <div className="sm:col-span-3">
+                            <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                              Conditionnement
+                            </label>
+                            <div className="flex items-center gap-1 pt-1">
+                              <label className="text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={line.usePurchaseUnit}
+                                  onChange={(e) => handleUpdateLine(idx, { usePurchaseUnit: e.target.checked })}
+                                  className="rounded text-brand-600"
+                                />
+                                Vente en Carton
+                              </label>
+                            </div>
+                          </div>
+                        </>
                       )}
 
                       {/* Product Live Stock Status Pill */}
@@ -1836,7 +2565,7 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
 
           {/* 4. Action Buttons */}
           <div className="flex items-center justify-end gap-3 pt-2">
-            <Button variant="outline" type="button" onClick={onClose}>
+            <Button variant="outline" type="button" onClick={handleModalClose}>
               Annuler
             </Button>
             <Button
@@ -1850,6 +2579,7 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
             </Button>
           </div>
         </form>
+        )}
       </Modal>
 
       {/* Modal: New Client Quick Creation */}
@@ -2096,6 +2826,18 @@ export const QuickOrderModal: React.FC<QuickOrderModalProps> = ({
             </div>
           </form>
         </Modal>
+      )}
+
+      {/* Modal: Receipt Printing */}
+      {receiptPayment && (
+        <PaymentReceiptModal
+          payment={receiptPayment}
+          order={receiptOrder}
+          onClose={() => {
+            setReceiptPayment(null);
+            setReceiptOrder(null);
+          }}
+        />
       )}
     </>
   );

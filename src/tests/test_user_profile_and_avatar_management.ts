@@ -141,12 +141,13 @@ async function runProfileManagementTests() {
   let emailConflictCaught = false;
   try {
     // Operator attempts to take cashier's email
-    dbStore.updateUserProfile(
+    const res = dbStore.updateUserProfile(
       operator!.id,
       { email: 'sophie.caisse@centre-libreville.ga' },
       operator,
       false
     );
+    if (!res.success) throw new Error(res.message);
   } catch (err: any) {
     emailConflictCaught = true;
     assert(err.message.includes('déjà utilisée'), `Rejected duplicate email with message: "${err.message}"`);
@@ -170,29 +171,31 @@ async function runProfileManagementTests() {
   // Failure: Incorrect old password
   let wrongOldPwdCaught = false;
   try {
-    dbStore.changeUserPassword(
+    const res = dbStore.changeUserPassword(
       agencyAdmin!.id,
       'wrongOldPassword',
       'AnotherNewPassword!2026',
       agencyAdmin,
       false
     );
+    if (!res.success) throw new Error(res.message);
   } catch (err: any) {
     wrongOldPwdCaught = true;
-    assert(err.message.includes('actuel est incorrect'), `Rejected wrong old password: "${err.message}"`);
+    assert(err.message.includes('incorrect'), `Rejected wrong old password: "${err.message}"`);
   }
   assert(wrongOldPwdCaught, 'System blocked password change with wrong old password');
 
   // Failure: New password too short (< 6 chars)
   let shortPwdCaught = false;
   try {
-    dbStore.changeUserPassword(
+    const res = dbStore.changeUserPassword(
       agencyAdmin!.id,
       'NewSecurePassword!2026',
       '123',
       agencyAdmin,
       false
     );
+    if (!res.success) throw new Error(res.message);
   } catch (err: any) {
     shortPwdCaught = true;
     assert(err.message.includes('6 caractères'), `Rejected short password: "${err.message}"`);
@@ -206,15 +209,16 @@ async function runProfileManagementTests() {
   let unauthorizedEditCaught = false;
   try {
     // Cashier attempts to maliciously modify Agency Admin's profile
-    dbStore.updateUserProfile(
+    const res = dbStore.updateUserProfile(
       agencyAdmin!.id,
       { firstName: 'HackedName' },
       cashier, // Requesting user is Cashier, target is Agency Admin
       false
     );
+    if (!res.success) throw new Error(res.message);
   } catch (err: any) {
     unauthorizedEditCaught = true;
-    assert(err.message.includes('non autorisé') || err.message.includes('interdit'), `Security barrier blocked unauthorized edit: "${err.message}"`);
+    assert(err.message.includes('Refusé') || err.message.includes('propre profil') || err.message.includes('non autorisé'), `Security barrier blocked unauthorized edit: "${err.message}"`);
   }
   assert(unauthorizedEditCaught, 'Blocked non-admin user from modifying another user profile');
 

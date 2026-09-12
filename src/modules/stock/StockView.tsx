@@ -10,7 +10,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { dbStore } from '../../server/db/mockStore';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
-import { Product, ProductCategory, StockMovement, Supplier, StockMovementType, ProductPackaging } from '../../types';
+import { Product, ProductCategory, StockMovement, Supplier, StockMovementType, ProductPackaging, ProductPublicationStatus } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import {
   Boxes, Plus, AlertTriangle, Search, Eye, Edit,
@@ -20,7 +20,7 @@ import {
   Flame, Sparkles, ArrowLeftRight, Wrench, MoreVertical,
   Archive, RotateCcw, FolderTree, ArrowRight, HelpCircle,
   FileText, Check, X, Building2, ChevronDown, Package,
-  LayoutGrid, List, Image, ImageIcon, Upload, Zap
+  LayoutGrid, List, Image, ImageIcon, Upload, Zap, Globe
 } from 'lucide-react';
 import { ProductBarcodeLabelModal } from './ProductBarcodeLabelModal';
 import {
@@ -63,7 +63,8 @@ const ProductCardVisual: React.FC<{
   isOutOfStock?: boolean;
   isLowStock?: boolean;
   isActive?: boolean;
-}> = ({ imageUrl, name, category, isArchived, isOutOfStock, isLowStock, isActive = true }) => {
+  publicationStatus?: ProductPublicationStatus;
+}> = ({ imageUrl, name, category, isArchived, isOutOfStock, isLowStock, isActive = true, publicationStatus }) => {
   const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
@@ -113,6 +114,24 @@ const ProductCardVisual: React.FC<{
             <span className={`w-1.5 h-1.5 rounded-full ${isOutOfStock ? 'bg-rose-400' : isLowStock ? 'bg-amber-400' : 'bg-emerald-400'}`} />
             {isOutOfStock ? 'Rupture de Stock' : isLowStock ? 'Stock Faible' : 'En Stock'}
           </Badge>
+        )}
+      </div>
+
+      {/* Publication Status Badge Bottom Left */}
+      <div className="absolute bottom-2.5 left-2.5">
+        {publicationStatus === 'PUBLISHED' ? (
+          <span className="px-2 py-0.5 rounded-lg bg-emerald-600/90 backdrop-blur-md text-white text-[10px] font-black shadow-md flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+            🌐 En ligne (Marketplace)
+          </span>
+        ) : publicationStatus === 'UNPUBLISHED' ? (
+          <span className="px-2 py-0.5 rounded-lg bg-amber-600/90 backdrop-blur-md text-white text-[10px] font-bold shadow-md">
+            🚫 Dépublié
+          </span>
+        ) : (
+          <span className="px-2 py-0.5 rounded-lg bg-slate-800/90 backdrop-blur-md text-slate-300 text-[10px] font-semibold shadow-md">
+            📝 Brouillon (Privé)
+          </span>
         )}
       </div>
 
@@ -181,6 +200,8 @@ const ProductActionsDropdown: React.FC<{
   onBarcode: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
+  onPublish?: () => void;
+  onUnpublish?: () => void;
   canEdit: boolean;
   canDelete: boolean;
   placement?: 'top' | 'bottom';
@@ -195,10 +216,14 @@ const ProductActionsDropdown: React.FC<{
   onBarcode,
   onToggleActive,
   onDelete,
+  onPublish,
+  onUnpublish,
   canEdit,
   canDelete,
   placement = 'top',
 }) => {
+  const isPublished = product.publicationStatus === 'PUBLISHED';
+
   return (
     <div className="relative inline-block text-left">
       <Button
@@ -260,6 +285,37 @@ const ProductActionsDropdown: React.FC<{
                   <Edit className="w-4 h-4 text-amber-500" />
                   <span>✏ Modifier l'article</span>
                 </button>
+              )}
+
+              {/* Publication / Dépublication Marketplace Action */}
+              {canEdit && (
+                <>
+                  {!isPublished ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        if (onPublish) onPublish();
+                      }}
+                      className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-left transition-colors"
+                    >
+                      <Globe className="w-4 h-4 text-emerald-500" />
+                      <span>🌐 Publier le produit</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        if (onUnpublish) onUnpublish();
+                      }}
+                      className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-left transition-colors"
+                    >
+                      <Globe className="w-4 h-4 text-amber-500" />
+                      <span>🚫 Dépublier (Masquer)</span>
+                    </button>
+                  )}
+                </>
               )}
 
               <button
@@ -386,6 +442,8 @@ export const StockView: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [productToToggleActive, setProductToToggleActive] = useState<Product | null>(null);
   const [productForBarcode, setProductForBarcode] = useState<Product | null>(null);
+  const [productToPublish, setProductToPublish] = useState<Product | null>(null);
+  const [productToUnpublish, setProductToUnpublish] = useState<Product | null>(null);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
 
   // Category Modals state
@@ -423,6 +481,7 @@ export const StockView: React.FC = () => {
   const [newCategoryId, setNewCategoryId] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [newImages, setNewImages] = useState<string[]>(['']);
   const [newIsActive, setNewIsActive] = useState(true);
 
   // Section B: Multi-Unit & Packagings Hierarchy
@@ -462,6 +521,11 @@ export const StockView: React.FC = () => {
   const [newDefaultSaleUnit, setNewDefaultSaleUnit] = useState('feuille');
   const [newDefaultPurchaseUnit, setNewDefaultPurchaseUnit] = useState('carton');
 
+  // Marketplace Pricing & Unit Configuration
+  const [newPublicUnit, setNewPublicUnit] = useState<string>('carton');
+  const [newPublicPrice, setNewPublicPrice] = useState<number | undefined>(330000);
+  const [newConversionFactorToStock, setNewConversionFactorToStock] = useState<number>(2500);
+
   // Section C: Stock & Location (All quantities in Base Unit)
   const [newInitialStock, setNewInitialStock] = useState<number>(25000);
   const [newMinAlert, setNewMinAlert] = useState<number>(2500);
@@ -485,12 +549,18 @@ export const StockView: React.FC = () => {
   const [editCategoryId, setEditCategoryId] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editImageUrl, setEditImageUrl] = useState('');
+  const [editImages, setEditImages] = useState<string[]>([]);
   const [editIsActive, setEditIsActive] = useState(true);
 
   const [editBaseUnit, setEditBaseUnit] = useState('feuille');
   const [editPackagings, setEditPackagings] = useState<ProductPackaging[]>([]);
   const [editDefaultSaleUnit, setEditDefaultSaleUnit] = useState('feuille');
   const [editDefaultPurchaseUnit, setEditDefaultPurchaseUnit] = useState('carton');
+
+  // Edit Marketplace Pricing & Unit Configuration
+  const [editPublicUnit, setEditPublicUnit] = useState<string>('feuille');
+  const [editPublicPrice, setEditPublicPrice] = useState<number | undefined>(undefined);
+  const [editConversionFactorToStock, setEditConversionFactorToStock] = useState<number>(1);
 
   const [editMinAlert, setEditMinAlert] = useState<number>(0);
   const [editMaxStock, setEditMaxStock] = useState<number>(0);
@@ -540,6 +610,53 @@ export const StockView: React.FC = () => {
   const activeCategories = useMemo(() => {
     return agencyCategories.filter(c => c.isActive && !c.isArchived);
   }, [agencyCategories]);
+
+  // Dynamic Marketplace Units (Strictly derived from configured base unit and allowed packagings)
+  const newAvailableMarketplaceUnits = useMemo(() => {
+    const baseU = newBaseUnit.trim() || 'unité';
+    const list = [
+      {
+        unit: baseU,
+        label: `${baseU} (Unité de base)`,
+        defaultPrice: newSalePrice,
+        factor: 1
+      }
+    ];
+    newPackagings
+      .filter(p => p.isAllowedForSale && p.unitName && p.unitName.trim().length > 0)
+      .forEach(pkg => {
+        list.push({
+          unit: pkg.unitName.trim(),
+          label: `${pkg.unitName.trim()} (Conditionnement x${pkg.factorToBase} ${baseU})`,
+          defaultPrice: pkg.salePrice || (newSalePrice * pkg.factorToBase),
+          factor: pkg.factorToBase
+        });
+      });
+    return list;
+  }, [newBaseUnit, newSalePrice, newPackagings]);
+
+  const editAvailableMarketplaceUnits = useMemo(() => {
+    const baseU = editBaseUnit.trim() || 'unité';
+    const list = [
+      {
+        unit: baseU,
+        label: `${baseU} (Unité de base)`,
+        defaultPrice: editSalePrice,
+        factor: 1
+      }
+    ];
+    editPackagings
+      .filter(p => p.isAllowedForSale && p.unitName && p.unitName.trim().length > 0)
+      .forEach(pkg => {
+        list.push({
+          unit: pkg.unitName.trim(),
+          label: `${pkg.unitName.trim()} (Conditionnement x${pkg.factorToBase} ${baseU})`,
+          defaultPrice: pkg.salePrice || (editSalePrice * pkg.factorToBase),
+          factor: pkg.factorToBase
+        });
+      });
+    return list;
+  }, [editBaseUnit, editSalePrice, editPackagings]);
 
   // Suppliers list
   const suppliers = agencySuppliers;
@@ -1182,7 +1299,7 @@ export const StockView: React.FC = () => {
     setIsNewProductModalOpen(true);
   };
 
-  const handleProductImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+  const handleProductImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean, viewIndex: number = 0) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -1218,44 +1335,117 @@ export const StockView: React.FC = () => {
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
+          let finalDataUrl = rawDataUrl;
           if (ctx) {
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, width, height);
             ctx.drawImage(img, 0, 0, width, height);
-            const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-            if (isEdit) {
-              setEditImageUrl(optimizedDataUrl);
-            } else {
-              setNewImageUrl(optimizedDataUrl);
-            }
-          } else {
-            if (isEdit) {
-              setEditImageUrl(rawDataUrl);
-            } else {
-              setNewImageUrl(rawDataUrl);
-            }
+            finalDataUrl = canvas.toDataURL('image/jpeg', 0.85);
           }
-          showToast('Photo chargée 📸', `L'image « ${file.name} » a été enregistrée avec succès.`, 'SUCCESS');
+          
+          if (isEdit) {
+            setEditImages(prev => {
+              const copy = [...prev];
+              copy[viewIndex] = finalDataUrl;
+              return copy;
+            });
+            if (viewIndex === 0) setEditImageUrl(finalDataUrl);
+          } else {
+            setNewImages(prev => {
+              const copy = [...prev];
+              copy[viewIndex] = finalDataUrl;
+              return copy;
+            });
+            if (viewIndex === 0) setNewImageUrl(finalDataUrl);
+          }
+          showToast('Photo chargée 📸', `Vue ${viewIndex + 1} enregistrée avec succès.`, 'SUCCESS');
         } catch (err) {
           if (isEdit) {
-            setEditImageUrl(rawDataUrl);
+            setEditImages(prev => {
+              const copy = [...prev];
+              copy[viewIndex] = rawDataUrl;
+              return copy;
+            });
+            if (viewIndex === 0) setEditImageUrl(rawDataUrl);
           } else {
-            setNewImageUrl(rawDataUrl);
+            setNewImages(prev => {
+              const copy = [...prev];
+              copy[viewIndex] = rawDataUrl;
+              return copy;
+            });
+            if (viewIndex === 0) setNewImageUrl(rawDataUrl);
           }
-          showToast('Photo chargée 📸', `L'image « ${file.name} » a été chargée.`, 'SUCCESS');
+          showToast('Photo chargée 📸', `Vue ${viewIndex + 1} chargée.`, 'SUCCESS');
         }
       };
       img.onerror = () => {
         if (isEdit) {
-          setEditImageUrl(rawDataUrl);
+          setEditImages(prev => {
+            const copy = [...prev];
+            copy[viewIndex] = rawDataUrl;
+            return copy;
+          });
+          if (viewIndex === 0) setEditImageUrl(rawDataUrl);
         } else {
-          setNewImageUrl(rawDataUrl);
+          setNewImages(prev => {
+            const copy = [...prev];
+            copy[viewIndex] = rawDataUrl;
+            return copy;
+          });
+          if (viewIndex === 0) setNewImageUrl(rawDataUrl);
         }
-        showToast('Photo chargée 📸', `L'image « ${file.name} » a été chargée.`, 'SUCCESS');
+        showToast('Photo chargée 📸', `Vue ${viewIndex + 1} chargée.`, 'SUCCESS');
       };
       img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleAddImageView = (isEdit: boolean) => {
+    if (isEdit) {
+      if (editImages.length < 4) {
+        setEditImages(prev => [...prev, '']);
+      }
+    } else {
+      if (newImages.length < 4) {
+        setNewImages(prev => [...prev, '']);
+      }
+    }
+  };
+
+  const handleUpdateImageViewUrl = (isEdit: boolean, index: number, url: string) => {
+    if (isEdit) {
+      setEditImages(prev => {
+        const copy = [...prev];
+        copy[index] = url;
+        return copy;
+      });
+      if (index === 0) setEditImageUrl(url);
+    } else {
+      setNewImages(prev => {
+        const copy = [...prev];
+        copy[index] = url;
+        return copy;
+      });
+      if (index === 0) setNewImageUrl(url);
+    }
+  };
+
+  const handleRemoveImageView = (isEdit: boolean, index: number) => {
+    if (isEdit) {
+      setEditImages(prev => {
+        const filtered = prev.filter((_, i) => i !== index);
+        setEditImageUrl(filtered[0] || '');
+        return filtered;
+      });
+    } else {
+      setNewImages(prev => {
+        const filtered = prev.filter((_, i) => i !== index);
+        setNewImageUrl(filtered[0] || '');
+        return filtered;
+      });
+    }
   };
 
   const handleCreateProduct = (e: React.FormEvent) => {
@@ -1296,6 +1486,9 @@ export const StockView: React.FC = () => {
     const supplier = suppliers.find(s => s.id === newSupplierId);
     const defaultPurchPkg = computedPkgs.find(p => p.isDefaultPurchaseUnit) || computedPkgs[computedPkgs.length - 1];
 
+    const validImages = newImages.map(img => img.trim()).filter(img => img.length > 0).slice(0, 4);
+    const primaryImg = validImages.length > 0 ? validImages[0] : (newImageUrl.trim() || undefined);
+
     const result = dbStore.createSecureProduct({
       code: trimmedCode,
       barcode: newBarcode.trim() || undefined,
@@ -1303,7 +1496,11 @@ export const StockView: React.FC = () => {
       categoryId: selectedCategory?.id || 'cat-prod-01',
       category: selectedCategory?.name || 'Général',
       description: newDescription.trim() || undefined,
-      imageUrl: newImageUrl.trim() || undefined,
+      imageUrl: primaryImg,
+      images: validImages,
+      publicUnit: newPublicUnit || newDefaultSaleUnit || trimmedBaseUnit,
+      publicPrice: newPublicPrice !== undefined ? newPublicPrice : newSalePrice,
+      conversionFactorToStockUnit: newConversionFactorToStock || 1,
       baseUnit: trimmedBaseUnit,
       packagings: computedPkgs,
       defaultSaleUnit: newDefaultSaleUnit || trimmedBaseUnit,
@@ -1339,11 +1536,21 @@ export const StockView: React.FC = () => {
     setEditDescription(p.description || '');
     setEditImageUrl(p.imageUrl || '');
 
+    const existingImgs = (p.images && p.images.length > 0)
+      ? p.images.filter(img => typeof img === 'string' && img.trim().length > 0)
+      : (p.imageUrl ? [p.imageUrl] : []);
+    setEditImages(existingImgs.length > 0 ? existingImgs : ['']);
+
     const baseU = p.baseUnit || p.unit || 'unité';
     setEditBaseUnit(baseU);
-    setEditPackagings(p.packagings ? JSON.parse(JSON.stringify(p.packagings)) : []);
+    const pkgs = p.packagings ? JSON.parse(JSON.stringify(p.packagings)) : [];
+    setEditPackagings(pkgs);
     setEditDefaultSaleUnit(p.defaultSaleUnit || baseU);
     setEditDefaultPurchaseUnit(p.defaultPurchaseUnit || p.purchaseUnit || baseU);
+
+    setEditPublicUnit(p.publicUnit || p.defaultSaleUnit || baseU);
+    setEditPublicPrice(p.publicPrice !== undefined ? p.publicPrice : p.salePrice);
+    setEditConversionFactorToStock(p.conversionFactorToStockUnit || 1);
 
     setEditCostPrice(p.costPrice || 0);
     setEditSalePrice(p.salePrice || 0);
@@ -1398,6 +1605,9 @@ export const StockView: React.FC = () => {
     const supplier = suppliers.find(s => s.id === editSupplierId);
     const defaultPurchPkg = computedPkgs.find(p => p.isDefaultPurchaseUnit) || computedPkgs[computedPkgs.length - 1];
 
+    const validImages = editImages.map(img => img.trim()).filter(img => img.length > 0).slice(0, 4);
+    const primaryImg = validImages.length > 0 ? validImages[0] : (editImageUrl.trim() || undefined);
+
     const result = dbStore.updateSecureProduct(productToEdit.id, {
       code: trimmedCode,
       barcode: editBarcode.trim() || undefined,
@@ -1405,7 +1615,11 @@ export const StockView: React.FC = () => {
       categoryId: selectedCategory?.id || productToEdit.categoryId,
       category: selectedCategory?.name || productToEdit.category,
       description: editDescription.trim() || undefined,
-      imageUrl: editImageUrl.trim() || undefined,
+      imageUrl: primaryImg,
+      images: validImages,
+      publicUnit: editPublicUnit || editDefaultSaleUnit || trimmedBaseUnit,
+      publicPrice: editPublicPrice !== undefined ? editPublicPrice : editSalePrice,
+      conversionFactorToStockUnit: editConversionFactorToStock || 1,
       baseUnit: trimmedBaseUnit,
       packagings: computedPkgs,
       defaultSaleUnit: editDefaultSaleUnit || trimmedBaseUnit,
@@ -1530,6 +1744,30 @@ export const StockView: React.FC = () => {
       setProductToDelete(null);
     } else {
       showToast('Suppression refusée', result.message, 'DANGER');
+    }
+  };
+
+  const handleConfirmPublish = () => {
+    if (!productToPublish) return;
+    const result = dbStore.publishProduct(productToPublish.id, currentAgencyId, isSuperAdmin);
+
+    if (result.success) {
+      showToast('Publication réussie 🌐', result.message, 'SUCCESS');
+      setProductToPublish(null);
+    } else {
+      showToast('Publication impossible ⚠️', result.message, 'DANGER');
+    }
+  };
+
+  const handleConfirmUnpublish = () => {
+    if (!productToUnpublish) return;
+    const result = dbStore.unpublishProduct(productToUnpublish.id, currentAgencyId, isSuperAdmin);
+
+    if (result.success) {
+      showToast('Dépublication effectuée', result.message, 'SUCCESS');
+      setProductToUnpublish(null);
+    } else {
+      showToast('Erreur', result.message, 'DANGER');
     }
   };
 
@@ -2056,6 +2294,7 @@ export const StockView: React.FC = () => {
                         isOutOfStock={isOutOfStock}
                         isLowStock={isLowStock}
                         isActive={p.isActive}
+                        publicationStatus={p.publicationStatus}
                       />
 
                       {/* Card Content */}
@@ -2186,6 +2425,8 @@ export const StockView: React.FC = () => {
                                 onBarcode={() => setProductForBarcode(p)}
                                 onToggleActive={() => handleToggleProductActive(p)}
                                 onDelete={() => setProductToDelete(p)}
+                                onPublish={() => setProductToPublish(p)}
+                                onUnpublish={() => setProductToUnpublish(p)}
                                 canEdit={isSuperAdmin || hasPermission('article.edit') || hasPermission('stock.manage')}
                                 canDelete={isSuperAdmin || hasPermission('article.delete') || hasPermission('stock.manage')}
                               />
@@ -2373,6 +2614,8 @@ export const StockView: React.FC = () => {
                                 onBarcode={() => setProductForBarcode(p)}
                                 onToggleActive={() => handleToggleProductActive(p)}
                                 onDelete={() => setProductToDelete(p)}
+                                onPublish={() => setProductToPublish(p)}
+                                onUnpublish={() => setProductToUnpublish(p)}
                                 canEdit={isSuperAdmin || hasPermission('article.edit') || hasPermission('stock.manage')}
                                 canDelete={isSuperAdmin || hasPermission('article.delete') || hasPermission('stock.manage')}
                               />
@@ -3884,77 +4127,110 @@ export const StockView: React.FC = () => {
                   />
                 </div>
 
-                {/* Photo du Produit (Optionnelle avec Importation de Fichier) */}
+                {/* Photos de l'Article (jusqu'à 4 vues réelles) */}
                 <div className="sm:col-span-2 space-y-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <ImageIcon className="w-4 h-4 text-brand-500" />
-                      Photo de l'Article (Optionnelle)
-                    </label>
-                    {newImageUrl && (
-                      <button
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-brand-500" />
+                        Photos de l'Article ({newImages.filter(img => img.trim()).length}/4 vue{newImages.filter(img => img.trim()).length > 1 ? 's' : ''} configurée{newImages.filter(img => img.trim()).length > 1 ? 's' : ''})
+                      </label>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">
+                        Vue 1 = Image principale affichée en premier • Vues 2 à 4 = angles, dos et détails complémentaires.
+                      </span>
+                    </div>
+
+                    {newImages.length < 4 && (
+                      <Button
                         type="button"
-                        onClick={() => setNewImageUrl('')}
-                        className="text-[11px] text-rose-500 hover:text-rose-700 font-bold flex items-center gap-1 transition-colors"
+                        size="sm"
+                        variant="outline"
+                        icon={Plus}
+                        onClick={() => handleAddImageView(false)}
+                        className="text-xs font-bold text-brand-600 dark:text-brand-400 border-brand-300 dark:border-brand-800 self-start sm:self-auto"
                       >
-                        <Trash2 className="w-3.5 h-3.5" /> Supprimer la photo
-                      </button>
+                        + Ajouter une vue ({newImages.length + 1}/4)
+                      </Button>
                     )}
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    {/* Thumbnail preview */}
-                    <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner group relative">
-                      <ProductThumbnailSmall
-                        imageUrl={newImageUrl}
-                        alt="Aperçu"
-                        size="lg"
-                        className="w-full h-full border-0 shadow-none"
-                      />
-                      {newImageUrl && (
-                        <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white text-[10px] font-bold">
-                          Changer
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleProductImageUpload(e, false)}
-                            className="hidden"
+                  <div className="space-y-3 pt-1">
+                    {newImages.map((imgUrl, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center gap-3 shadow-sm"
+                      >
+                        {/* Thumbnail preview */}
+                        <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner group relative">
+                          <ProductThumbnailSmall
+                            imageUrl={imgUrl}
+                            alt={`Vue ${idx + 1}`}
+                            size="lg"
+                            className="w-full h-full border-0 shadow-none"
                           />
-                        </label>
-                      )}
-                    </div>
+                          <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white text-[10px] font-bold">
+                            {imgUrl ? 'Changer' : 'Charger'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleProductImageUpload(e, false, idx)}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
 
-                    {/* Actions & Inputs */}
-                    <div className="flex-1 space-y-2 w-full">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {/* File Upload Button */}
-                        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-sm">
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>Importer une image</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleProductImageUpload(e, false)}
-                            className="hidden"
+                        {/* Controls */}
+                        <div className="flex-1 space-y-1.5 w-full">
+                          <div className="flex items-center justify-between">
+                            <Badge
+                              variant={idx === 0 ? "primary" : "secondary"}
+                              size="sm"
+                              className="text-[10px] font-bold"
+                            >
+                              {idx === 0 ? "Vue 1 / Image principale" : `Vue ${idx + 1}`}
+                            </Badge>
+
+                            <div className="flex items-center gap-2">
+                              {/* File Upload Trigger */}
+                              <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-[11px] font-bold cursor-pointer transition-all shadow-sm">
+                                <Upload className="w-3 h-3" />
+                                <span>Importer</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleProductImageUpload(e, false, idx)}
+                                  className="hidden"
+                                />
+                              </label>
+
+                              {(newImages.length > 1 || imgUrl) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveImageView(false, idx)}
+                                  className="text-[11px] text-rose-500 hover:text-rose-700 font-bold p-1 rounded transition-colors flex items-center gap-0.5"
+                                  title="Supprimer cette vue"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <Input
+                            type="text"
+                            placeholder="ex: https://... ou /images/produit.jpg"
+                            value={imgUrl}
+                            onChange={(e) => handleUpdateImageViewUrl(false, idx, e.target.value)}
+                            className="text-xs h-8"
                           />
-                        </label>
-
-                        <span className="text-[11px] text-slate-400 font-medium">ou coller une URL :</span>
+                        </div>
                       </div>
-
-                      <Input
-                        type="text"
-                        placeholder="ex: https://... ou /images/produit.jpg"
-                        value={newImageUrl}
-                        onChange={(e) => setNewImageUrl(e.target.value)}
-                        className="text-xs"
-                      />
-
-                      <span className="text-[10px] text-slate-400 block">
-                        Formats acceptés : JPG, PNG, WEBP, SVG (max 5 Mo). Si aucune photo n'est fournie, un visuel élégant (📦) est généré automatiquement.
-                      </span>
-                    </div>
+                    ))}
                   </div>
+
+                  <span className="text-[10px] text-slate-400 block pt-1">
+                    Formats acceptés : JPG, PNG, WEBP, SVG (max 5 Mo). Si aucune photo n'est fournie, un placeholder élégant (📦) sera affiché sans utiliser l'image d'un autre article.
+                  </span>
                 </div>
               </div>
             </div>
@@ -4091,17 +4367,17 @@ export const StockView: React.FC = () => {
                             </label>
                             <Input
                               type="text"
-                              placeholder="ex: paquet, carton, boîte..."
+                              placeholder="ex: paquet, carton, boîte, palette..."
                               value={pkg.unitName}
                               onChange={(e) => handleUpdatePackaging(idx, { unitName: e.target.value }, false)}
                               required
-                              className="font-semibold"
+                              className="font-bold text-slate-900 dark:text-white capitalize"
                             />
                           </div>
 
                           <div>
                             <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                              Contient (Quantité) *
+                              Contenance *
                             </label>
                             <Input
                               type="number"
@@ -4109,25 +4385,29 @@ export const StockView: React.FC = () => {
                               value={pkg.containedQuantity}
                               onChange={(e) => handleUpdatePackaging(idx, { containedQuantity: parseInt(e.target.value) || 1 }, false)}
                               required
-                              className="font-bold text-center"
                             />
                           </div>
 
                           <div>
                             <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                              De l'Unité Inférieure
+                              Sous-Unité Contenue *
                             </label>
-                            <Input
-                              type="text"
+                            <Select
                               value={pkg.subUnitName}
-                              disabled
-                              className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold cursor-not-allowed"
-                            />
+                              onChange={(e) => handleUpdatePackaging(idx, { subUnitName: e.target.value }, false)}
+                            >
+                              <option value={newBaseUnit}>{newBaseUnit} (Unité de base)</option>
+                              {newPackagings.slice(0, idx).map((prevPkg, pIdx) => (
+                                <option key={prevPkg.id || pIdx} value={prevPkg.unitName}>
+                                  {prevPkg.unitName} (Niveau {pIdx + 2})
+                                </option>
+                              ))}
+                            </Select>
                           </div>
 
                           <div>
-                            <label className="font-bold text-brand-600 block mb-1">
-                              Prix Vente ({pkg.unitName || 'Unité'})
+                            <label className="font-bold text-emerald-600 block mb-1">
+                              Prix Vente Détail ({pkg.unitName || 'Lot'})
                             </label>
                             <Input
                               type="number"
@@ -4135,64 +4415,49 @@ export const StockView: React.FC = () => {
                               placeholder="ex: 70000"
                               value={pkg.salePrice || ''}
                               onChange={(e) => handleUpdatePackaging(idx, { salePrice: parseInt(e.target.value) || 0 }, false)}
-                              className="font-bold text-brand-600"
+                              className="font-bold text-emerald-600"
                             />
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs pt-1 border-t border-slate-100 dark:border-slate-800/80">
-                          <div>
-                            <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                              Prix Achat Fournisseur ({pkg.unitName || 'Unité'})
-                            </label>
-                            <Input
-                              type="number"
-                              min="0"
-                              placeholder="ex: 60000"
-                              value={pkg.purchasePrice || ''}
-                              onChange={(e) => handleUpdatePackaging(idx, { purchasePrice: parseInt(e.target.value) || 0 }, false)}
+                        <div className="flex flex-wrap items-center gap-4 pt-1 text-xs border-t border-slate-100 dark:border-slate-800">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300">
+                            <input
+                              type="checkbox"
+                              checked={pkg.isAllowedForSale}
+                              onChange={(e) => handleUpdatePackaging(idx, { isAllowedForSale: e.target.checked }, false)}
+                              className="rounded text-brand-600 focus:ring-brand-500"
                             />
-                          </div>
+                            Autorisé à la vente
+                          </label>
 
-                          <div className="flex items-center gap-4 sm:col-span-2 pt-4">
-                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                              <input
-                                type="checkbox"
-                                checked={pkg.isAllowedForSale !== false}
-                                onChange={(e) => handleUpdatePackaging(idx, { isAllowedForSale: e.target.checked }, false)}
-                                className="rounded text-brand-600 focus:ring-brand-500"
-                              />
-                              Autorisé à la vente
-                            </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300">
+                            <input
+                              type="checkbox"
+                              checked={pkg.isAllowedForPurchase}
+                              onChange={(e) => handleUpdatePackaging(idx, { isAllowedForPurchase: e.target.checked }, false)}
+                              className="rounded text-brand-600 focus:ring-brand-500"
+                            />
+                            Autorisé aux achats fournisseurs
+                          </label>
 
-                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                              <input
-                                type="checkbox"
-                                checked={pkg.isAllowedForPurchase !== false}
-                                onChange={(e) => handleUpdatePackaging(idx, { isAllowedForPurchase: e.target.checked }, false)}
-                                className="rounded text-brand-600 focus:ring-brand-500"
-                              />
-                              Autorisé à l'achat
-                            </label>
-
-                            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                              <input
-                                type="checkbox"
-                                checked={pkg.isDefaultPurchaseUnit === true}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  const currentPkgs = newPackagings.map((p, i) => ({
-                                    ...p,
-                                    isDefaultPurchaseUnit: i === idx ? checked : false
-                                  }));
-                                  const { packagings: computed } = recalculatePackagingFactors(newBaseUnit, currentPkgs);
-                                  setNewPackagings(computed);
-                                }}
-                                className="rounded text-brand-600 focus:ring-brand-500"
-                              />
-                              Unité d'achat par défaut
-                            </label>
-                          </div>
+                          <label className="flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300">
+                            <input
+                              type="radio"
+                              name="defaultPurchaseUnitCreate"
+                              checked={pkg.isDefaultPurchaseUnit}
+                              onChange={() => {
+                                const currentPkgs = newPackagings.map((p, i) => ({
+                                  ...p,
+                                  isDefaultPurchaseUnit: i === idx
+                                }));
+                                const { packagings: computed } = recalculatePackagingFactors(newBaseUnit, currentPkgs);
+                                setNewPackagings(computed);
+                              }}
+                              className="rounded text-brand-600 focus:ring-brand-500"
+                            />
+                            Unité d'achat par défaut
+                          </label>
                         </div>
                       </div>
                     ))}
@@ -4335,6 +4600,72 @@ export const StockView: React.FC = () => {
               </div>
             </div>
 
+            {/* SECTION : CONFIGURATION DU PRIX ET UNITÉ DANS LE MARKETPLACE */}
+            <div className="p-4 bg-amber-50/70 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-900 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <h4 className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase">
+                    Prix affiché dans la Marketplace
+                  </h4>
+                </div>
+                <Badge variant="warning" size="sm" className="text-[10px] font-bold">
+                  Visible par les clients
+                </Badge>
+              </div>
+
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                Sélectionnez l'unité commerciale que verront les clients sur la marketplace publique (parmi les unités réelles configurées pour cet article).
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="font-bold text-slate-800 dark:text-slate-200 block mb-1">
+                    Unité commerciale présentée au client *
+                  </label>
+                  <Select
+                    value={newPublicUnit}
+                    onChange={(e) => {
+                      const selUnit = e.target.value;
+                      setNewPublicUnit(selUnit);
+                      const found = newAvailableMarketplaceUnits.find(u => u.unit === selUnit);
+                      if (found) {
+                        setNewPublicPrice(found.defaultPrice);
+                        setNewConversionFactorToStock(found.factor);
+                      }
+                    }}
+                  >
+                    {newAvailableMarketplaceUnits.map(u => (
+                      <option key={u.unit} value={u.unit}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    1 {newPublicUnit} = {newConversionFactorToStock} {newBaseUnit}(s)
+                  </span>
+                </div>
+
+                <div>
+                  <label className="font-bold text-amber-600 dark:text-amber-400 block mb-1">
+                    Prix de Vente Public Marketplace (GNF) *
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={newPublicPrice !== undefined ? newPublicPrice : ''}
+                    onChange={(e) => setNewPublicPrice(parseInt(e.target.value) || 0)}
+                    placeholder="ex: 35000"
+                    required
+                    className="font-bold text-amber-600 text-sm"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Affiché au client : <strong>{formatCurrency(newPublicPrice || 0)}</strong> / {newPublicUnit}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* SECTION E: FOURNISSEUR */}
             <div className="space-y-3">
               <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5 text-slate-600">
@@ -4465,77 +4796,110 @@ export const StockView: React.FC = () => {
                   />
                 </div>
 
-                {/* Photo de l'Article (Optionnelle avec Importation de Fichier) */}
+                {/* Photos & Vues du Produit (Jusqu'à 4 vues réelles) */}
                 <div className="sm:col-span-2 space-y-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <ImageIcon className="w-4 h-4 text-brand-500" />
-                      Photo de l'Article (Optionnelle)
-                    </label>
-                    {editImageUrl && (
-                      <button
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-brand-500" />
+                        Photos & Vues de l'Article (Optionnelles — Jusqu'à 4 vues)
+                      </label>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">
+                        Vue 1 = Image principale affichée en premier • Vues 2 à 4 = angles, dos et détails complémentaires.
+                      </span>
+                    </div>
+
+                    {editImages.length < 4 && (
+                      <Button
                         type="button"
-                        onClick={() => setEditImageUrl('')}
-                        className="text-[11px] text-rose-500 hover:text-rose-700 font-bold flex items-center gap-1 transition-colors"
+                        size="sm"
+                        variant="outline"
+                        icon={Plus}
+                        onClick={() => handleAddImageView(true)}
+                        className="text-xs font-bold text-brand-600 dark:text-brand-400 border-brand-300 dark:border-brand-800 self-start sm:self-auto"
                       >
-                        <Trash2 className="w-3.5 h-3.5" /> Supprimer la photo
-                      </button>
+                        + Ajouter une vue ({editImages.length + 1}/4)
+                      </Button>
                     )}
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    {/* Thumbnail preview */}
-                    <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner group relative">
-                      <ProductThumbnailSmall
-                        imageUrl={editImageUrl}
-                        alt="Aperçu"
-                        size="lg"
-                        className="w-full h-full border-0 shadow-none"
-                      />
-                      {editImageUrl && (
-                        <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white text-[10px] font-bold">
-                          Changer
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleProductImageUpload(e, true)}
-                            className="hidden"
+                  <div className="space-y-3 pt-1">
+                    {editImages.map((imgUrl, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center gap-3 shadow-sm"
+                      >
+                        {/* Thumbnail preview */}
+                        <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner group relative">
+                          <ProductThumbnailSmall
+                            imageUrl={imgUrl}
+                            alt={`Vue ${idx + 1}`}
+                            size="lg"
+                            className="w-full h-full border-0 shadow-none"
                           />
-                        </label>
-                      )}
-                    </div>
+                          <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white text-[10px] font-bold">
+                            {imgUrl ? 'Changer' : 'Charger'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleProductImageUpload(e, true, idx)}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
 
-                    {/* Actions & Inputs */}
-                    <div className="flex-1 space-y-2 w-full">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {/* File Upload Button */}
-                        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-sm">
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>Importer une image</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleProductImageUpload(e, true)}
-                            className="hidden"
+                        {/* Controls */}
+                        <div className="flex-1 space-y-1.5 w-full">
+                          <div className="flex items-center justify-between">
+                            <Badge
+                              variant={idx === 0 ? "primary" : "secondary"}
+                              size="sm"
+                              className="text-[10px] font-bold"
+                            >
+                              {idx === 0 ? "Vue 1 / Image principale" : `Vue ${idx + 1}`}
+                            </Badge>
+
+                            <div className="flex items-center gap-2">
+                              {/* File Upload Trigger */}
+                              <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-[11px] font-bold cursor-pointer transition-all shadow-sm">
+                                <Upload className="w-3 h-3" />
+                                <span>Importer</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleProductImageUpload(e, true, idx)}
+                                  className="hidden"
+                                />
+                              </label>
+
+                              {(editImages.length > 1 || imgUrl) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveImageView(true, idx)}
+                                  className="text-[11px] text-rose-500 hover:text-rose-700 font-bold p-1 rounded transition-colors flex items-center gap-0.5"
+                                  title="Supprimer cette vue"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <Input
+                            type="text"
+                            placeholder="ex: https://... ou /images/produit.jpg"
+                            value={imgUrl}
+                            onChange={(e) => handleUpdateImageViewUrl(true, idx, e.target.value)}
+                            className="text-xs h-8"
                           />
-                        </label>
-
-                        <span className="text-[11px] text-slate-400 font-medium">ou coller une URL :</span>
+                        </div>
                       </div>
-
-                      <Input
-                        type="text"
-                        placeholder="ex: https://... ou /images/produit.jpg"
-                        value={editImageUrl}
-                        onChange={(e) => setEditImageUrl(e.target.value)}
-                        className="text-xs"
-                      />
-
-                      <span className="text-[10px] text-slate-400 block">
-                        Formats acceptés : JPG, PNG, WEBP, SVG (max 5 Mo). Si aucune photo n'est fournie, un visuel élégant (📦) est généré automatiquement.
-                      </span>
-                    </div>
+                    ))}
                   </div>
+
+                  <span className="text-[10px] text-slate-400 block pt-1">
+                    Formats acceptés : JPG, PNG, WEBP, SVG (max 5 Mo). Si aucune photo n'est fournie, un placeholder élégant (📦) sera affiché sans utiliser l'image d'un autre article.
+                  </span>
                 </div>
               </div>
             </div>
@@ -4827,6 +5191,72 @@ export const StockView: React.FC = () => {
                   onChange={(e) => setEditMinAlert(parseInt(e.target.value) || 1)}
                   required
                 />
+              </div>
+            </div>
+
+            {/* SECTION : CONFIGURATION DU PRIX ET UNITÉ DANS LE MARKETPLACE */}
+            <div className="p-4 bg-amber-50/70 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-900 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <h4 className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase">
+                    Prix affiché dans la Marketplace
+                  </h4>
+                </div>
+                <Badge variant="warning" size="sm" className="text-[10px] font-bold">
+                  Visible par les clients
+                </Badge>
+              </div>
+
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                Sélectionnez l'unité commerciale que verront les clients sur la marketplace publique (parmi les unités réelles configurées pour cet article).
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="font-bold text-slate-800 dark:text-slate-200 block mb-1">
+                    Unité commerciale présentée au client *
+                  </label>
+                  <Select
+                    value={editPublicUnit}
+                    onChange={(e) => {
+                      const selUnit = e.target.value;
+                      setEditPublicUnit(selUnit);
+                      const found = editAvailableMarketplaceUnits.find(u => u.unit === selUnit);
+                      if (found) {
+                        setEditPublicPrice(found.defaultPrice);
+                        setEditConversionFactorToStock(found.factor);
+                      }
+                    }}
+                  >
+                    {editAvailableMarketplaceUnits.map(u => (
+                      <option key={u.unit} value={u.unit}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    1 {editPublicUnit} = {editConversionFactorToStock} {editBaseUnit}(s)
+                  </span>
+                </div>
+
+                <div>
+                  <label className="font-bold text-amber-600 dark:text-amber-400 block mb-1">
+                    Prix de Vente Public Marketplace (GNF) *
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={editPublicPrice !== undefined ? editPublicPrice : ''}
+                    onChange={(e) => setEditPublicPrice(parseInt(e.target.value) || 0)}
+                    placeholder="ex: 35000"
+                    required
+                    className="font-bold text-amber-600 text-sm"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Affiché au client : <strong>{formatCurrency(editPublicPrice || 0)}</strong> / {editPublicUnit}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -5934,6 +6364,125 @@ export const StockView: React.FC = () => {
           isOpen={!!productForBarcode}
           onClose={() => setProductForBarcode(null)}
         />
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: CONFIRMATION PUBLICATION MARKETPLACE */}
+      {/* ========================================================================= */}
+      {productToPublish && (
+        <Modal
+          isOpen={!!productToPublish}
+          onClose={() => setProductToPublish(null)}
+          title="🌐 Publier le produit sur le Marketplace"
+          maxWidth="md"
+        >
+          <div className="space-y-4 pt-1">
+            <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-600 flex items-center justify-center shrink-0">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Voulez-vous publier cet article ?
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Une fois publié, ce produit sera instantanément accessible et commandable par tous les visiteurs et clients sur le <strong>Marketplace National de Guinée</strong> et dans votre vitrine boutique.
+                </p>
+              </div>
+            </div>
+
+            {/* Product Summary */}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60 flex items-center gap-3">
+              {(productToPublish.images?.[0] || productToPublish.imageUrl) ? (
+                <img
+                  src={productToPublish.images?.[0] || productToPublish.imageUrl}
+                  alt={productToPublish.name}
+                  className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-lg bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-400 shrink-0">
+                  <Package className="w-6 h-6" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <h5 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                  {productToPublish.name}
+                </h5>
+                <p className="text-[11px] text-slate-500">
+                  Réf : {productToPublish.code} • Catégorie : {productToPublish.category}
+                </p>
+                <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  {(productToPublish.publicPrice || productToPublish.salePrice || 0).toLocaleString('fr-FR')} GNF / {productToPublish.publicUnit || productToPublish.baseUnit || 'Unité'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setProductToPublish(null)}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="primary"
+                type="button"
+                icon={Globe}
+                onClick={handleConfirmPublish}
+                className="bg-emerald-600 hover:bg-emerald-500 font-black shadow-lg shadow-emerald-600/30"
+              >
+                Confirmer la Publication
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: CONFIRMATION DÉPUBLICATION MARKETPLACE */}
+      {/* ========================================================================= */}
+      {productToUnpublish && (
+        <Modal
+          isOpen={!!productToUnpublish}
+          onClose={() => setProductToUnpublish(null)}
+          title="🚫 Dépublier le produit du Marketplace"
+          maxWidth="md"
+        >
+          <div className="space-y-4 pt-1">
+            <div className="p-4 bg-amber-50/70 dark:bg-amber-950/30 rounded-2xl border border-amber-200 dark:border-amber-800/60 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Retirer ce produit de la visibilité publique ?
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Le produit « <strong>{productToUnpublish.name}</strong> » sera masqué du catalogue public marketplace et de votre vitrine. Il reste présent dans votre inventaire boutique et pourra être republié à tout moment.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setProductToUnpublish(null)}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="primary"
+                type="button"
+                onClick={handleConfirmUnpublish}
+                className="bg-amber-600 hover:bg-amber-500 font-bold"
+              >
+                Dépublier (Masquer)
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

@@ -4,8 +4,9 @@ import {
   LayoutDashboard, Users, ShoppingBag, Factory, GraduationCap,
   CreditCard, Wallet, Boxes, Truck, Receipt, BarChart3,
   Bell, ShieldCheck, History, Settings, Sparkles, ChevronRight,
-  Monitor, Tag, Store, KeyRound, Building2, Lock
+  Monitor, Tag, Store, KeyRound, Building2, Lock, MessageSquare, BadgeCheck, LogOut
 } from 'lucide-react';
+import { dbStore } from '../../server/db/mockStore';
 import { cn } from '../../lib/utils';
 import { isModuleEnabledForAgency, ACTIVITY_TYPES_CONFIG } from '../../lib/moduleRegistry';
 
@@ -29,7 +30,9 @@ export type NavSection =
   | 'audit'
   | 'settings'
   | 'licenses'
-  | 'saas-superadmin';
+  | 'saas-superadmin'
+  | 'marketplace-messaging'
+  | 'stores-verification';
 
 interface SidebarProps {
   currentSection: NavSection;
@@ -46,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onOpenMarketplace,
 }) => {
-  const { currentTenant, currentUser, allTenants, switchTenant, hasPermission, isSuperAdmin, canPerformMutations } = useAuth();
+  const { currentTenant, currentUser, allTenants, switchTenant, hasPermission, isSuperAdmin, canPerformMutations, logout } = useAuth();
   const roleCode = currentUser?.roles[0]?.code || 'ADMIN_CENTRE';
 
   const isReceptionistOrCashier = roleCode === 'CAISSIER' || roleCode === 'RECEPTIONNISTE';
@@ -87,6 +90,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (id === 'reports') {
       return !isReceptionistOrCashier && (hasPermission('reports.view') || hasPermission('reports.*') || hasPermission('*'));
     }
+    if (id === 'stores-verification') {
+      return isSuperAdmin || isAdmin || hasPermission('stores.*') || hasPermission('*');
+    }
     if (id === 'training') {
       return hasPermission('training.view') || hasPermission('training.*') || hasPermission('*');
     }
@@ -105,7 +111,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       groups.push({
         title: "SUPER ADMIN SAAS",
         items: [
-          { id: 'saas-superadmin', label: 'Administration SaaS & Agences', icon: Sparkles }
+          { id: 'saas-superadmin', label: 'Administration SaaS & Agences', icon: Sparkles },
+          { id: 'stores-verification', label: 'Vérification Boutiques', icon: BadgeCheck },
+          { id: 'marketplace-messaging', label: 'Supervision Messagerie', icon: MessageSquare }
         ]
       });
     }
@@ -115,6 +123,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const cashierItems = [
         { id: 'dashboard' as NavSection, label: 'Tableau de Bord', icon: LayoutDashboard },
         { id: 'boutique' as NavSection, label: 'Boutique & Vente POS', icon: Store },
+        { id: 'orders' as NavSection, label: 'Commandes & Devis', icon: ShoppingBag },
+        { id: 'marketplace-messaging' as NavSection, label: 'Messagerie Client', icon: MessageSquare },
         { id: 'persons' as NavSection, label: 'Clients & Contacts', icon: Users },
         { id: 'cash' as NavSection, label: 'Finance & Trésorerie', icon: Wallet },
         { id: 'stock' as NavSection, label: 'Stock & Magasin', icon: Boxes },
@@ -122,7 +132,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ];
 
       if (activityType === 'SERVICE_CENTER') {
-        cashierItems.splice(3, 0, { id: 'orders' as NavSection, label: 'Commandes & Devis', icon: ShoppingBag });
         cashierItems.push({ id: 'production' as NavSection, label: 'Atelier Production', icon: Factory });
         cashierItems.push({ id: 'services-pricing' as NavSection, label: 'Consultation des Tarifs', icon: Tag });
       }
@@ -147,6 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { id: 'production' as NavSection, label: 'Atelier Production', icon: Factory },
             { id: 'equipment' as NavSection, label: 'Matériel du Centre', icon: Monitor },
             { id: 'orders' as NavSection, label: 'Commandes à Traiter', icon: ShoppingBag },
+            { id: 'marketplace-messaging' as NavSection, label: 'Messagerie Client', icon: MessageSquare },
           ]
         }
       ];
@@ -163,6 +173,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { id: 'training' as NavSection, label: 'Formations & Sessions', icon: GraduationCap },
             { id: 'persons' as NavSection, label: 'Apprenants & Formateurs', icon: Users },
             { id: 'payments' as NavSection, label: 'Paiements Formations', icon: CreditCard },
+            { id: 'marketplace-messaging' as NavSection, label: 'Messagerie Client', icon: MessageSquare },
           ]
         }
       ];
@@ -177,6 +188,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           items: [
             { id: 'dashboard', label: 'Tableau de Bord 360°', icon: LayoutDashboard },
             { id: 'boutique', label: 'Boutique & Vente POS', icon: Store },
+            { id: 'orders', label: 'Commandes & Devis', icon: ShoppingBag },
+            { id: 'marketplace-messaging', label: 'Messagerie Client', icon: MessageSquare },
             { id: 'persons', label: 'Clients & Personnes', icon: Users },
             { id: 'billing', label: 'Facturation & Devis', icon: Receipt },
           ]
@@ -236,6 +249,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           title: "PÔLE 3 — BOUTIQUE & LOGISTIQUE",
           items: [
             { id: 'boutique', label: 'Boutique & Vente POS', icon: Store },
+            { id: 'marketplace-messaging', label: 'Messagerie Client', icon: MessageSquare },
             { id: 'stock', label: 'Stock & Magasin', icon: Boxes },
             { id: 'suppliers', label: 'Fournisseurs & BC', icon: Truck },
             { id: 'billing', label: 'Facturation & Devis', icon: Receipt },
@@ -367,6 +381,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {group.items.map(item => {
                 const Icon = item.icon;
                 const isActive = currentSection === item.id;
+                const unreadCount = item.id === 'marketplace-messaging' 
+                  ? dbStore.getMarketplaceUnreadCount(currentTenant?.id) 
+                  : item.id === 'orders'
+                  ? dbStore.getMarketplaceOrdersUnreadCount(currentTenant?.id)
+                  : 0;
+
                 return (
                   <button
                     key={item.id}
@@ -381,11 +401,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"
                     )}
                   >
-                    <div className="flex items-center gap-3">
-                      <Icon className={cn("w-4 h-4 transition-transform group-hover:scale-110", isActive ? "text-white" : "text-slate-400 group-hover:text-brand-400")} />
-                      <span>{item.label}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon className={cn("w-4 h-4 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-white" : "text-slate-400 group-hover:text-brand-400")} />
+                      <span className="truncate">{item.label}</span>
                     </div>
-                    {isActive && <ChevronRight className="w-3.5 h-3.5 text-brand-200" />}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {unreadCount > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white shadow-xs animate-pulse">
+                          🔴 {unreadCount}
+                        </span>
+                      )}
+                      {isActive && <ChevronRight className="w-3.5 h-3.5 text-brand-200" />}
+                    </div>
                   </button>
                 );
               })}
@@ -413,8 +440,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {/* User Card at bottom */}
-        <div className="p-3 border-t border-slate-800 bg-slate-950/60">
+        {/* User Card & Logout at bottom */}
+        <div className="p-3 border-t border-slate-800 bg-slate-950/60 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2.5 min-w-0">
               <div className="w-8 h-8 rounded-lg bg-brand-700/60 border border-brand-500/30 text-white font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden">
@@ -445,6 +472,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              onCloseMobile();
+              logout();
+            }}
+            className="w-full py-2 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+            title="Se déconnecter (Retour immédiat à la page Visiteur)"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Se déconnecter</span>
+          </button>
         </div>
       </aside>
     </>

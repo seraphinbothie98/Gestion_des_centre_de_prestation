@@ -1,6 +1,6 @@
 import {
-  Tenant, Branch, Role, RoleCode, User, Person, ServiceCategory, Service,
-  Order, OrderItem, ProductionJob, TrainingCategory, Training, Classroom, TrainingSession,
+  Tenant, Branch, Role, RoleCode, User, Person, ClientStoreRelation, ServiceCategory, Service,
+  Order, OrderItem, OrderStatus, ProductionJob, TrainingCategory, Training, Classroom, TrainingSession,
   Enrollment, AttendanceSheet, Assessment, Certificate, CashRegister,
   CashSession, Payment, Expense, ExpenseCategory, Product, ProductCategory, ProductPackaging, StockMovement, StockMovementType, Supplier, PurchaseOrder, PurchaseOrderItem, RequestingDepartment,
   BoutiqueSale, BoutiqueSaleReturn, UnitOfMeasure,
@@ -11,8 +11,12 @@ import {
   FinancialYear, FinancialYearStatus, FinancialPeriod, FinancialPeriodStatus,
   SupplierPayment, SupplierDebt, SupplierDebtStatus, PurchaseOrderStatus, PurchaseOrderPaymentStatus, PaymentMethod, AccountResetRecord,
   Store, StoreType, ConsumableMode, ServiceConsumableConfig, UserProfileUpdateData,
-  ResetLevel, ResetSummaryData, OperationalResetOptions, ResetExecutionResult
+  ResetLevel, ResetSummaryData, OperationalResetOptions, ResetExecutionResult,
+  MarketplaceConversation, MarketplaceMessage, MarketplaceCategoryItem,
+  StoreVerification, StoreVerificationStatus, StoreCommercialStatus, StoreBusinessType, StoreRejectionReason
 } from '../../types';
+import { generateDocNumber, formatCurrency } from '../../lib/utils';
+import type { MarketplaceCartItem } from '../../modules/marketplace/types';
 import {
   resolveProductPurchasePrice,
   calculateServiceStockConsumption,
@@ -37,6 +41,7 @@ import {
   FinancialSensitiveAction
 } from '../security/securityEngine';
 import { isValidPhoneNumber, sanitizePhoneInput, validatePhoneWithDetails } from '../../lib/phoneValidation';
+import { validatePasswordByPolicy, hashPassword, getAccountCategory, verifyPassword } from '../../lib/passwordSecurity';
 import { supabaseService } from './supabaseService';
 import { isSupabaseConfigured, checkSupabaseConnection } from '../../lib/supabaseClient';
 
@@ -87,6 +92,10 @@ export interface DatabaseState {
   equipmentMaintenances: EquipmentMaintenance[];
   notifications: AppNotification[];
   auditLogs: AuditLog[];
+  marketplaceConversations?: MarketplaceConversation[];
+  marketplaceMessages?: MarketplaceMessage[];
+  storeVerifications?: StoreVerification[];
+  clientStoreRelations?: ClientStoreRelation[];
   currentTenantId: string;
   currentUserId: string;
 }
@@ -225,6 +234,10 @@ export const INITIAL_STATE: DatabaseState = {
       currency: "GNF",
       taxRate: 0,
       isActive: true,
+      verificationStatus: 'APPROUVE',
+      commercialStatus: 'ACTIVE',
+      isPhoneVerified: true,
+      isVerifiedStore: true,
       subscriptionStatus: "TRIAL",
       trialStartedAt: new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString(), // 13 jours écoulés, reste 32 jours
       trialEndsAt: new Date(Date.now() + 32 * 24 * 60 * 60 * 1000).toISOString(),
@@ -385,6 +398,11 @@ export const INITIAL_STATE: DatabaseState = {
       currency: "GNF",
       taxRate: 0,
       isActive: true,
+      isLiveStreaming: true,
+      verificationStatus: 'APPROUVE',
+      commercialStatus: 'ACTIVE',
+      isPhoneVerified: true,
+      isVerifiedStore: true,
       subscriptionStatus: "ACTIVE",
       trialStartedAt: "2026-01-01T00:00:00Z",
       trialEndsAt: "2027-01-01T00:00:00Z",
@@ -736,8 +754,8 @@ export const INITIAL_STATE: DatabaseState = {
       categoryId: 'sc-01',
       categoryName: 'Impression & Photocopie',
       code: 'PHOTOCOPIE-A4-NB',
-      name: 'Photocopie A4 Noir & Blanc',
-      description: 'Papier standard 80g recto',
+      name: 'Photocopie',
+      description: 'Reproduction et photocopie noir & blanc / couleur tous formats',
       unit: 'page',
       baseCost: 150,
       basePrice: 500,
@@ -746,14 +764,75 @@ export const INITIAL_STATE: DatabaseState = {
       isActive: true,
       consumableMode: 'INTERNAL_VARIABLE',
       isClientSupportAllowed: false,
+      options: [
+        { id: 'opt-format', name: 'Format', values: ['A4', 'A3'] },
+        { id: 'opt-mode', name: 'Mode', values: ['Noir & blanc', 'Couleur'] },
+        { id: 'opt-type', name: 'Type d\'impression', values: ['Recto', 'Recto-verso'] },
+        { id: 'opt-papier', name: 'Papier', values: ['Standard', 'Bristol'] }
+      ],
+      configurations: [
+        {
+          id: 'cfg-photo-1',
+          serviceId: 'srv-01',
+          optionValues: { 'Format': 'A4', 'Mode': 'Noir & blanc', 'Type d\'impression': 'Recto', 'Papier': 'Standard' },
+          price: 500,
+          billingUnit: 'page',
+          consumables: [{ productId: 'prod-01', productName: 'Papier Ramette A4 80g Double A', quantityPerUnit: 1, unit: 'feuille' }],
+          isActive: true
+        },
+        {
+          id: 'cfg-photo-2',
+          serviceId: 'srv-01',
+          optionValues: { 'Format': 'A4', 'Mode': 'Noir & blanc', 'Type d\'impression': 'Recto-verso', 'Papier': 'Standard' },
+          price: 700,
+          billingUnit: 'page',
+          consumables: [{ productId: 'prod-01', productName: 'Papier Ramette A4 80g Double A', quantityPerUnit: 1, unit: 'feuille' }],
+          isActive: true
+        },
+        {
+          id: 'cfg-photo-3',
+          serviceId: 'srv-01',
+          optionValues: { 'Format': 'A4', 'Mode': 'Couleur', 'Type d\'impression': 'Recto', 'Papier': 'Standard' },
+          price: 1000,
+          billingUnit: 'page',
+          consumables: [{ productId: 'prod-01', productName: 'Papier Ramette A4 80g Double A', quantityPerUnit: 1, unit: 'feuille' }],
+          isActive: true
+        },
+        {
+          id: 'cfg-photo-4',
+          serviceId: 'srv-01',
+          optionValues: { 'Format': 'A4', 'Mode': 'Couleur', 'Type d\'impression': 'Recto-verso', 'Papier': 'Standard' },
+          price: 1800,
+          billingUnit: 'page',
+          consumables: [{ productId: 'prod-01', productName: 'Papier Ramette A4 80g Double A', quantityPerUnit: 1, unit: 'feuille' }],
+          isActive: true
+        },
+        {
+          id: 'cfg-photo-5',
+          serviceId: 'srv-01',
+          optionValues: { 'Format': 'A3', 'Mode': 'Noir & blanc', 'Type d\'impression': 'Recto', 'Papier': 'Standard' },
+          price: 1000,
+          billingUnit: 'page',
+          consumables: [{ productId: 'prod-01', productName: 'Papier Ramette A4 80g Double A', quantityPerUnit: 2, unit: 'feuille' }],
+          isActive: true
+        },
+        {
+          id: 'cfg-photo-6',
+          serviceId: 'srv-01',
+          optionValues: { 'Format': 'A4', 'Mode': 'Noir & blanc', 'Type d\'impression': 'Recto', 'Papier': 'Bristol' },
+          price: 1000,
+          billingUnit: 'page',
+          consumables: [{ productId: 'prod-02', productName: 'Papier Bristol A4 180g Multi-Couleurs', quantityPerUnit: 1, unit: 'feuille' }],
+          isActive: true
+        }
+      ],
       consumables: [
         { productId: 'prod-01', productName: 'Papier Ramette A4 80g Double A', quantityPerUnit: 1, unit: 'feuille', isClientSupplied: false, isOptional: false }
       ],
       pricingRules: [
         { id: 'pr-01', serviceId: 'srv-01', minQuantity: 1, maxQuantity: 50, unitPrice: 500, customerType: 'ALL' },
         { id: 'pr-02', serviceId: 'srv-01', minQuantity: 51, maxQuantity: 200, unitPrice: 400, customerType: 'ALL' },
-        { id: 'pr-03', serviceId: 'srv-01', minQuantity: 201, maxQuantity: undefined, unitPrice: 300, customerType: 'ALL' },
-        { id: 'pr-04', serviceId: 'srv-01', minQuantity: 1, maxQuantity: undefined, unitPrice: 350, customerType: 'STUDENT' }
+        { id: 'pr-03', serviceId: 'srv-01', minQuantity: 201, maxQuantity: undefined, unitPrice: 300, customerType: 'ALL' }
       ],
       consumptions: [{ productId: 'prod-01', quantity: 1 }]
     },
@@ -763,8 +842,8 @@ export const INITIAL_STATE: DatabaseState = {
       categoryId: 'sc-01',
       categoryName: 'Impression & Photocopie',
       code: 'IMPRESSION-A4-COUL',
-      name: 'Impression A4 Couleur Jet d\'encre / Laser',
-      description: 'Impression haute fidélité couleur 80g/100g',
+      name: 'Impression Numérique',
+      description: 'Impression haute fidélité couleur / monochrome 80g à 250g',
       unit: 'page',
       baseCost: 500,
       basePrice: 2000,
@@ -773,13 +852,55 @@ export const INITIAL_STATE: DatabaseState = {
       isActive: true,
       consumableMode: 'INTERNAL_VARIABLE',
       isClientSupportAllowed: false,
+      options: [
+        { id: 'opt-imp-format', name: 'Format', values: ['A4', 'A3'] },
+        { id: 'opt-imp-mode', name: 'Mode', values: ['Couleur HD', 'Noir & blanc Laser'] },
+        { id: 'opt-imp-papier', name: 'Papier', values: ['Standard', 'Bristol', 'Papier Photo'] }
+      ],
+      configurations: [
+        {
+          id: 'cfg-imp-1',
+          serviceId: 'srv-02',
+          optionValues: { 'Format': 'A4', 'Mode': 'Couleur HD', 'Papier': 'Standard' },
+          price: 2000,
+          billingUnit: 'page',
+          consumables: [{ productId: 'prod-01', productName: 'Papier Ramette A4 80g Double A', quantityPerUnit: 1, unit: 'feuille' }],
+          isActive: true
+        },
+        {
+          id: 'cfg-imp-2',
+          serviceId: 'srv-02',
+          optionValues: { 'Format': 'A4', 'Mode': 'Noir & blanc Laser', 'Papier': 'Standard' },
+          price: 800,
+          billingUnit: 'page',
+          consumables: [{ productId: 'prod-01', productName: 'Papier Ramette A4 80g Double A', quantityPerUnit: 1, unit: 'feuille' }],
+          isActive: true
+        },
+        {
+          id: 'cfg-imp-3',
+          serviceId: 'srv-02',
+          optionValues: { 'Format': 'A3', 'Mode': 'Couleur HD', 'Papier': 'Standard' },
+          price: 4000,
+          billingUnit: 'page',
+          consumables: [{ productId: 'prod-01', productName: 'Papier Ramette A4 80g Double A', quantityPerUnit: 2, unit: 'feuille' }],
+          isActive: true
+        },
+        {
+          id: 'cfg-imp-4',
+          serviceId: 'srv-02',
+          optionValues: { 'Format': 'A4', 'Mode': 'Couleur HD', 'Papier': 'Bristol' },
+          price: 2500,
+          billingUnit: 'page',
+          consumables: [{ productId: 'prod-02', productName: 'Papier Bristol A4 180g Multi-Couleurs', quantityPerUnit: 1, unit: 'feuille' }],
+          isActive: true
+        }
+      ],
       consumables: [
         { productId: 'prod-01', productName: 'Papier Ramette A4 80g Double A', quantityPerUnit: 1, unit: 'feuille', isClientSupplied: false, isOptional: false }
       ],
       pricingRules: [
         { id: 'pr-05', serviceId: 'srv-02', minQuantity: 1, maxQuantity: 20, unitPrice: 2000, customerType: 'ALL' },
-        { id: 'pr-06', serviceId: 'srv-02', minQuantity: 21, maxQuantity: 100, unitPrice: 1500, customerType: 'ALL' },
-        { id: 'pr-07', serviceId: 'srv-02', minQuantity: 101, maxQuantity: undefined, unitPrice: 1200, customerType: 'ALL' }
+        { id: 'pr-06', serviceId: 'srv-02', minQuantity: 21, maxQuantity: 100, unitPrice: 1500, customerType: 'ALL' }
       ],
       consumptions: [{ productId: 'prod-01', quantity: 1 }]
     },
@@ -789,24 +910,68 @@ export const INITIAL_STATE: DatabaseState = {
       categoryId: 'sc-02',
       categoryName: 'Finition & Reliure',
       code: 'RELIURE-SPIRALE-A4',
-      name: 'Reliure Spirale Plastique A4',
-      description: 'Avec transparent cristal face avant et cartonné dos',
+      name: 'Reliure',
+      description: 'Reliure professionnelle avec transparent cristal face avant et cartonné dos',
       unit: 'document',
       baseCost: 3000,
-      basePrice: 10000,
+      basePrice: 15000,
       requiresFile: false,
       estimatedDurationMinutes: 5,
       isActive: true,
       consumableMode: 'INTERNAL_FIXED',
       isClientSupportAllowed: true,
+      options: [
+        { id: 'opt-rel-format', name: 'Format', values: ['A4', 'A3'] },
+        { id: 'opt-rel-type', name: 'Type', values: ['Spirale', 'Thermique'] },
+        { id: 'opt-rel-couv', name: 'Couverture', values: ['Transparente', 'Bristol'] }
+      ],
+      configurations: [
+        {
+          id: 'cfg-rel-1',
+          serviceId: 'srv-03',
+          optionValues: { 'Format': 'A4', 'Type': 'Spirale', 'Couverture': 'Transparente' },
+          price: 15000,
+          billingUnit: 'document',
+          consumables: [
+            { productId: 'prod-06', productName: 'Boîte Spirales Plastiques 10mm (x100)', quantityPerUnit: 1, unit: 'unité' },
+            { productId: 'prod-07', productName: 'Paquet Plats PVC Transparents A4 (x100)', quantityPerUnit: 2, unit: 'feuille' }
+          ],
+          isActive: true
+        },
+        {
+          id: 'cfg-rel-2',
+          serviceId: 'srv-03',
+          optionValues: { 'Format': 'A4', 'Type': 'Spirale', 'Couverture': 'Bristol' },
+          price: 15000,
+          billingUnit: 'document',
+          consumables: [
+            { productId: 'prod-06', productName: 'Boîte Spirales Plastiques 10mm (x100)', quantityPerUnit: 1, unit: 'unité' },
+            { productId: 'prod-07', productName: 'Paquet Plats PVC Transparents A4 (x100)', quantityPerUnit: 1, unit: 'feuille' },
+            { productId: 'prod-02', productName: 'Papier Bristol A4 180g Multi-Couleurs', quantityPerUnit: 1, unit: 'feuille' }
+          ],
+          isActive: true
+        },
+        {
+          id: 'cfg-rel-3',
+          serviceId: 'srv-03',
+          optionValues: { 'Format': 'A3', 'Type': 'Spirale', 'Couverture': 'Transparente' },
+          price: 25000,
+          billingUnit: 'document',
+          consumables: [
+            { productId: 'prod-06', productName: 'Boîte Spirales Plastiques 10mm (x100)', quantityPerUnit: 1, unit: 'unité' },
+            { productId: 'prod-07', productName: 'Paquet Plats PVC Transparents A4 (x100)', quantityPerUnit: 2, unit: 'feuille' }
+          ],
+          isActive: true
+        }
+      ],
       consumables: [
         { productId: 'prod-06', productName: 'Boîte Spirales Plastiques 10mm (x100)', quantityPerUnit: 1, unit: 'unité', isClientSupplied: false, isOptional: false },
         { productId: 'prod-02', productName: 'Papier Bristol A4 180g Multi-Couleurs', quantityPerUnit: 1, unit: 'feuille', isClientSupplied: false, isOptional: false },
         { productId: 'prod-07', productName: 'Paquet Plats PVC Transparents A4 (x100)', quantityPerUnit: 1, unit: 'feuille', isClientSupplied: false, isOptional: false }
       ],
       pricingRules: [
-        { id: 'pr-08', serviceId: 'srv-03', minQuantity: 1, maxQuantity: 5, unitPrice: 10000, customerType: 'ALL' },
-        { id: 'pr-09', serviceId: 'srv-03', minQuantity: 6, maxQuantity: undefined, unitPrice: 8000, customerType: 'ALL' }
+        { id: 'pr-08', serviceId: 'srv-03', minQuantity: 1, maxQuantity: 5, unitPrice: 15000, customerType: 'ALL' },
+        { id: 'pr-09', serviceId: 'srv-03', minQuantity: 6, maxQuantity: undefined, unitPrice: 12000, customerType: 'ALL' }
       ],
       consumptions: [{ productId: 'prod-06', quantity: 1 }, { productId: 'prod-02', quantity: 1 }, { productId: 'prod-07', quantity: 1 }]
     },
@@ -816,8 +981,8 @@ export const INITIAL_STATE: DatabaseState = {
       categoryId: 'sc-03',
       categoryName: 'Plastification & Protection',
       code: 'PLASTIF-A4',
-      name: 'Plastification A4 125 microns',
-      description: 'Pochette brillante thermocollée résistante à l\'eau',
+      name: 'Plastification',
+      description: 'Pochette thermocollée résistante à l\'eau et aux UV',
       unit: 'document',
       baseCost: 1500,
       basePrice: 5000,
@@ -826,12 +991,44 @@ export const INITIAL_STATE: DatabaseState = {
       isActive: true,
       consumableMode: 'INTERNAL_FIXED',
       isClientSupportAllowed: true,
+      options: [
+        { id: 'opt-plas-format', name: 'Format', values: ['A4 (125µ)', 'A3 (125µ)', 'Badge / Carte'] },
+        { id: 'opt-plas-finition', name: 'Finition', values: ['Brillante', 'Mate anti-reflet'] }
+      ],
+      configurations: [
+        {
+          id: 'cfg-plas-1',
+          serviceId: 'srv-04',
+          optionValues: { 'Format': 'A4 (125µ)', 'Finition': 'Brillante' },
+          price: 5000,
+          billingUnit: 'document',
+          consumables: [{ productId: 'prod-08', productName: 'Boîte Pochettes Plastification A4 125µ (x100)', quantityPerUnit: 1, unit: 'pochette' }],
+          isActive: true
+        },
+        {
+          id: 'cfg-plas-2',
+          serviceId: 'srv-04',
+          optionValues: { 'Format': 'A3 (125µ)', 'Finition': 'Brillante' },
+          price: 10000,
+          billingUnit: 'document',
+          consumables: [{ productId: 'prod-08', productName: 'Boîte Pochettes Plastification A4 125µ (x100)', quantityPerUnit: 2, unit: 'pochette' }],
+          isActive: true
+        },
+        {
+          id: 'cfg-plas-3',
+          serviceId: 'srv-04',
+          optionValues: { 'Format': 'Badge / Carte', 'Finition': 'Brillante' },
+          price: 2500,
+          billingUnit: 'document',
+          consumables: [{ productId: 'prod-08', productName: 'Boîte Pochettes Plastification A4 125µ (x100)', quantityPerUnit: 0.25, unit: 'pochette' }],
+          isActive: true
+        }
+      ],
       consumables: [
         { productId: 'prod-08', productName: 'Boîte Pochettes Plastification A4 125µ (x100)', quantityPerUnit: 1, unit: 'pochette', isClientSupplied: false, isOptional: false }
       ],
       pricingRules: [
-        { id: 'pr-10', serviceId: 'srv-04', minQuantity: 1, maxQuantity: 10, unitPrice: 5000, customerType: 'ALL' },
-        { id: 'pr-11', serviceId: 'srv-04', minQuantity: 11, maxQuantity: undefined, unitPrice: 4000, customerType: 'ALL' }
+        { id: 'pr-10', serviceId: 'srv-04', minQuantity: 1, maxQuantity: 10, unitPrice: 5000, customerType: 'ALL' }
       ],
       consumptions: [{ productId: 'prod-08', quantity: 1 }]
     },
@@ -841,8 +1038,8 @@ export const INITIAL_STATE: DatabaseState = {
       categoryId: 'sc-04',
       categoryName: 'Scan & Numérisation',
       code: 'SCAN-DOC-A4',
-      name: 'Numérisation / Scan Haute Résolution A4',
-      description: 'Vers PDF ou envoi Email / Clé USB',
+      name: 'Numérisation / Scan',
+      description: 'Vers PDF multipages ou envoi Email / Clé USB',
       unit: 'page',
       baseCost: 50,
       basePrice: 500,
@@ -850,10 +1047,33 @@ export const INITIAL_STATE: DatabaseState = {
       estimatedDurationMinutes: 1,
       isActive: true,
       consumableMode: 'NONE',
+      options: [
+        { id: 'opt-scan-format', name: 'Format', values: ['A4', 'A3'] },
+        { id: 'opt-scan-dest', name: 'Destination', values: ['Envoi Email', 'Clé USB', 'WhatsApp'] }
+      ],
+      configurations: [
+        {
+          id: 'cfg-scan-1',
+          serviceId: 'srv-05',
+          optionValues: { 'Format': 'A4', 'Destination': 'Envoi Email' },
+          price: 500,
+          billingUnit: 'page',
+          consumables: [],
+          isActive: true
+        },
+        {
+          id: 'cfg-scan-2',
+          serviceId: 'srv-05',
+          optionValues: { 'Format': 'A3', 'Destination': 'Envoi Email' },
+          price: 1000,
+          billingUnit: 'page',
+          consumables: [],
+          isActive: true
+        }
+      ],
       consumables: [],
       pricingRules: [
-        { id: 'pr-12', serviceId: 'srv-05', minQuantity: 1, maxQuantity: 50, unitPrice: 500, customerType: 'ALL' },
-        { id: 'pr-13', serviceId: 'srv-05', minQuantity: 51, maxQuantity: undefined, unitPrice: 300, customerType: 'ALL' }
+        { id: 'pr-12', serviceId: 'srv-05', minQuantity: 1, maxQuantity: 50, unitPrice: 500, customerType: 'ALL' }
       ]
     },
     {
@@ -870,9 +1090,103 @@ export const INITIAL_STATE: DatabaseState = {
       requiresFile: false,
       estimatedDurationMinutes: 10,
       isActive: true,
+      options: [
+        { id: 'opt-photo-type', name: 'Type Photo', values: ['8 photos Identité (4x4)', 'Planche 16 photos'] },
+        { id: 'opt-photo-fond', name: 'Fond', values: ['Fond Blanc standard', 'Fond Bleu ciel'] }
+      ],
+      configurations: [
+        {
+          id: 'cfg-photo-id-1',
+          serviceId: 'srv-06',
+          optionValues: { 'Type Photo': '8 photos Identité (4x4)', 'Fond': 'Fond Blanc standard' },
+          price: 15000,
+          billingUnit: 'planche',
+          consumables: [],
+          isActive: true
+        }
+      ],
       pricingRules: [
         { id: 'pr-14', serviceId: 'srv-06', minQuantity: 1, maxQuantity: undefined, unitPrice: 15000, customerType: 'ALL' }
       ]
+    },
+    {
+      id: 'srv-07',
+      tenantId: INITIAL_TENANT_ID,
+      categoryId: 'sc-04',
+      categoryName: 'Conseil & Orientation',
+      code: 'AIDE-ORIENTATION',
+      name: 'Aide à l\'orientation d\'un étudiant',
+      description: 'Conseil et accompagnement pour le choix de filière universitaire',
+      unit: 'prestation',
+      baseCost: 0,
+      basePrice: 10000,
+      requiresFile: false,
+      estimatedDurationMinutes: 30,
+      isActive: true,
+      options: [],
+      configurations: [
+        {
+          id: 'cfg-orient-1',
+          serviceId: 'srv-07',
+          optionValues: {},
+          price: 10000,
+          billingUnit: 'prestation',
+          consumables: [],
+          isActive: true
+        }
+      ],
+      consumables: [],
+      pricingRules: []
+    },
+    {
+      id: 'srv-08',
+      tenantId: INITIAL_TENANT_ID,
+      categoryId: 'sc-04',
+      categoryName: 'Formation Professionnelle',
+      code: 'FORMATION-BUR',
+      name: 'Formation Informatique & Bureautique',
+      description: 'Cours pratiques sur mesure avec formateur dédié',
+      unit: 'heure',
+      baseCost: 5000,
+      basePrice: 25000,
+      requiresFile: false,
+      estimatedDurationMinutes: 60,
+      isActive: true,
+      options: [
+        { id: 'opt-form-type', name: 'Type de formation', values: ['Informatique de base', 'Bureautique Word / Excel', 'PAO & Graphisme'] },
+        { id: 'opt-form-duree', name: 'Durée', values: ['1 heure', '1 séance (3h)', 'Module complet (1 mois)'] }
+      ],
+      configurations: [
+        {
+          id: 'cfg-form-1',
+          serviceId: 'srv-08',
+          optionValues: { 'Type de formation': 'Informatique de base', 'Durée': '1 heure' },
+          price: 25000,
+          billingUnit: 'heure',
+          consumables: [],
+          isActive: true
+        },
+        {
+          id: 'cfg-form-2',
+          serviceId: 'srv-08',
+          optionValues: { 'Type de formation': 'Bureautique Word / Excel', 'Durée': '1 séance (3h)' },
+          price: 60000,
+          billingUnit: 'séance',
+          consumables: [],
+          isActive: true
+        },
+        {
+          id: 'cfg-form-3',
+          serviceId: 'srv-08',
+          optionValues: { 'Type de formation': 'Bureautique Word / Excel', 'Durée': 'Module complet (1 mois)' },
+          price: 350000,
+          billingUnit: 'forfait',
+          consumables: [],
+          isActive: true
+        }
+      ],
+      consumables: [],
+      pricingRules: []
     }
   ],
   priceHistories: [
@@ -1440,6 +1754,17 @@ export const INITIAL_STATE: DatabaseState = {
       location: 'Magasin Principal - Étagère A1',
       stockByLocation: { 'MAIN_STORE': 15000, 'BOUTIQUE': 7500, 'PRESTATION': 2500 },
       stockByStore: { 'store-cpep-main': 15000, 'store-cpep-boutique': 7500, 'store-cpep-workshop': 2500 },
+      // Marketplace Extensions
+      publicUnit: 'Carton (5 ramettes)',
+      publicPrice: 330000,
+      conversionFactorToStockUnit: 2500,
+      images: [
+        'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=600&auto=format&fit=crop&q=80'
+      ],
+      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       isConsumable: true,
       isSellable: true,
       isActive: true,
@@ -1657,6 +1982,15 @@ export const INITIAL_STATE: DatabaseState = {
       location: 'Atelier Façonnage - Tiroir R1',
       stockByLocation: { 'MAIN_STORE': 1000, 'PRODUCTION': 800 },
       stockByStore: { 'store-cpep-main': 1000, 'store-cpep-workshop': 800 },
+      // Marketplace Extensions
+      publicUnit: 'Paquet (100 spirales)',
+      publicPrice: 85000,
+      conversionFactorToStockUnit: 100,
+      images: [
+        'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=600&auto=format&fit=crop&q=80'
+      ],
       isConsumable: true,
       isSellable: true,
       isActive: true,
@@ -1797,6 +2131,16 @@ export const INITIAL_STATE: DatabaseState = {
       location: 'Dépôt Matériaux - Quai A',
       stockByLocation: { 'MAIN_STORE': 350, 'BOUTIQUE': 50 },
       stockByStore: { 'store-horizon-main': 350, 'store-horizon-shop': 50 },
+      // Marketplace Extensions
+      publicUnit: 'Sac (50kg)',
+      publicPrice: 85000,
+      conversionFactorToStockUnit: 1,
+      images: [
+        'https://images.unsplash.com/photo-1581783898377-1c85bf937427?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1590496793929-36417d3117de?w=600&auto=format&fit=crop&q=80'
+      ],
+      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       isConsumable: false,
       isSellable: true,
       isActive: true,
@@ -2228,8 +2572,82 @@ export const INITIAL_STATE: DatabaseState = {
       notes: 'Test de conformité 100 pages réussi.',
       createdAt: '2026-01-10T11:00:00Z'
     }
-  ]
+  ],
+  storeVerifications: [
+    {
+      id: 'sv-001',
+      storeId: INITIAL_TENANT_ID,
+      storeName: "Centre Polyvalent d'Excellence & Prestations (CPEP)",
+      submittedBy: 'u-admin-01',
+      submittedByName: 'Dr. Alpha Mamadou Diallo',
+      submittedByPhone: '+224 620 00 11 22',
+      submittedByEmail: 'contact@cpep-guinee.com',
+      status: 'APPROUVE',
+      commercialStatus: 'ACTIVE',
+      reviewedBy: 'u-superadmin',
+      reviewedByName: 'Super Administrateur',
+      reviewedAt: '2026-01-01T00:00:00Z',
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z'
+    },
+    {
+      id: 'sv-002',
+      storeId: 't-002',
+      storeName: 'Boutique Quincaillerie & Matériaux Horizon',
+      submittedBy: 'u-admin-b',
+      submittedByName: 'Elhadj Boubacar Diallo',
+      submittedByPhone: '+224 628 44 55 66',
+      submittedByEmail: 'direction@horizon-quincaillerie.com',
+      status: 'APPROUVE',
+      commercialStatus: 'ACTIVE',
+      reviewedBy: 'u-superadmin',
+      reviewedByName: 'Super Administrateur',
+      reviewedAt: '2026-01-01T00:00:00Z',
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z'
+    }
+  ],
+  clientStoreRelations: []
 };
+
+export function calculateItemStockDeduction(
+  item: { quantity: number; unit?: string; publicUnit?: string; stockQuantityDeducted?: number },
+  prod: Product
+): number {
+  if (item.stockQuantityDeducted !== undefined && item.stockQuantityDeducted > 0) {
+    return item.stockQuantityDeducted;
+  }
+  const qty = Number(item.quantity) || 1;
+  const unit = (item.publicUnit || item.unit || '').trim().toLowerCase();
+  const baseUnit = (prod.baseUnit || prod.unit || '').trim().toLowerCase();
+
+  // 1. If unit matches baseUnit exactly, 1:1
+  if (unit && baseUnit && unit === baseUnit) {
+    return qty;
+  }
+
+  // 2. Check in product packagings (e.g. "paquet" -> factorToBase: 500, "carton" -> factorToBase: 2500)
+  if (prod.packagings && prod.packagings.length > 0 && unit) {
+    const matchedPkg = prod.packagings.find(pkg => {
+      const pkgUnit = (pkg.unitName || '').trim().toLowerCase();
+      return pkgUnit === unit || unit.includes(pkgUnit) || pkgUnit.includes(unit);
+    });
+    if (matchedPkg && matchedPkg.factorToBase) {
+      return qty * matchedPkg.factorToBase;
+    }
+  }
+
+  // 3. Check publicUnit
+  const prodPublicUnit = (prod.publicUnit || '').trim().toLowerCase();
+  if (unit && prodPublicUnit && (unit === prodPublicUnit || unit.includes(prodPublicUnit) || prodPublicUnit.includes(unit))) {
+    const factor = prod.conversionFactorToStockUnit || prod.conversionFactor || 1;
+    return qty * factor;
+  }
+
+  // 4. Fallback conversion factor
+  const factor = prod.conversionFactorToStockUnit || prod.conversionFactor || 1;
+  return qty * factor;
+}
 
 // LocalStorage Persistence Wrapper with Event Emitter
 class StoreManager {
@@ -2245,6 +2663,10 @@ class StoreManager {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        // Ensure clientStoreRelations is properly hydrated
+        if (!parsed.clientStoreRelations) {
+          parsed.clientStoreRelations = [];
+        }
         // Ensure trainingCategories are properly hydrated
         if (!parsed.trainingCategories || parsed.trainingCategories.length === 0) {
           parsed.trainingCategories = JSON.parse(JSON.stringify(INITIAL_STATE.trainingCategories));
@@ -2294,6 +2716,42 @@ class StoreManager {
             const role = (parsed.roles as Role[]).find((r: Role) => r.code === u.roles[0]?.code);
             if (role) {
               u.permissions = role.permissions;
+            }
+          });
+        }
+
+        // Ensure services have standard options and configurations hydrated
+        if (parsed.services) {
+          parsed.services.forEach((s: Service) => {
+            const initialSrv = INITIAL_STATE.services.find(init => init.id === s.id || init.code === s.code);
+            if ((!s.options || s.options.length === 0) && initialSrv?.options && initialSrv.options.length > 0) {
+              s.options = JSON.parse(JSON.stringify(initialSrv.options));
+            }
+            if ((!s.configurations || s.configurations.length === 0) && initialSrv?.configurations && initialSrv.configurations.length > 0) {
+              s.configurations = JSON.parse(JSON.stringify(initialSrv.configurations));
+            }
+            // If still no configurations defined, create fallback default config
+            if (!s.configurations || s.configurations.length === 0) {
+              s.configurations = [
+                {
+                  id: `cfg-${s.id}-default`,
+                  serviceId: s.id,
+                  optionValues: {},
+                  price: s.basePrice || 0,
+                  billingUnit: s.unit || 'prestation',
+                  consumables: (s.consumables || []).map(c => ({
+                    productId: c.productId,
+                    productName: c.productName,
+                    quantityPerUnit: c.quantityPerUnit || 1,
+                    unit: c.unit || 'unité',
+                    isClientSupplied: Boolean(c.isClientSupplied)
+                  })),
+                  isActive: s.isActive !== false
+                }
+              ];
+            }
+            if (!s.options) {
+              s.options = [];
             }
           });
         }
@@ -2398,6 +2856,18 @@ class StoreManager {
             if (!t.status) {
               t.status = 'ACTIVE';
             }
+            if (!t.verificationStatus) {
+              t.verificationStatus = 'APPROUVE';
+            }
+            if (!t.commercialStatus) {
+              t.commercialStatus = 'ACTIVE';
+            }
+            if (t.isPhoneVerified === undefined) {
+              t.isPhoneVerified = true;
+            }
+            if (t.isVerifiedStore === undefined) {
+              t.isVerifiedStore = t.verificationStatus === 'APPROUVE';
+            }
             if (!t.subscriptionStatus) {
               t.subscriptionStatus = 'TRIAL';
               t.trialDaysTotal = 45;
@@ -2424,6 +2894,11 @@ class StoreManager {
             const agb = INITIAL_STATE.tenants.find(t => t.id === 't-002');
             if (agb) parsed.tenants.push(JSON.parse(JSON.stringify(agb)));
           }
+        }
+
+        // Ensure storeVerifications is initialized
+        if (!parsed.storeVerifications || parsed.storeVerifications.length === 0) {
+          parsed.storeVerifications = JSON.parse(JSON.stringify(INITIAL_STATE.storeVerifications || []));
         }
 
         // Ensure users have Super Admin (u-superadmin) and Admin Agence B (u-admin-b)
@@ -4123,8 +4598,8 @@ class StoreManager {
       return { success: false, movementsCount: 0, message: "Commande introuvable." };
     }
 
-    // Protection anti-double déduction
-    if (order.consumablesDeducted && order.stockDeducted) {
+    // Protection anti-double déduction (Idempotence stricte)
+    if (order.stockDeducted) {
       return { success: true, movementsCount: 0, message: "Stock déjà déduit pour cette commande." };
     }
 
@@ -4155,7 +4630,11 @@ class StoreManager {
       const prod = products.find(p => p.id === req.productId);
       const curPrestStock = prod?.prestationStock !== undefined
         ? prod.prestationStock
-        : (workshopStore && prod?.stockByStore?.[workshopStore.id] !== undefined ? prod.stockByStore[workshopStore.id] : (prod?.stockByLocation?.['PRESTATION'] || 0));
+        : (workshopStore && prod?.stockByStore?.[workshopStore.id] !== undefined 
+            ? prod.stockByStore[workshopStore.id] 
+            : (prod?.stockByLocation?.['PRESTATION'] !== undefined 
+                ? prod.stockByLocation['PRESTATION'] 
+                : (prod?.currentStock || 0)));
       
       if (curPrestStock < req.quantityRequired && !prod?.allowNegativeStock) {
         return {
@@ -4175,17 +4654,18 @@ class StoreManager {
       }
     }
 
-    // 5. Pre-validation: Check Availability of Boutique Products strictly in Stock Magasin
+    // 5. Pre-validation: Check Availability of Boutique Products strictly in Stock Magasin (with unit conversion)
     for (const item of productItems) {
       if (!item.productId) continue;
       const prod = products.find(p => p.id === item.productId);
-      const curMagasinStock = prod?.currentStock || 0;
-      const deduction = item.stockQuantityDeducted !== undefined ? item.stockQuantityDeducted : item.quantity;
-      if (curMagasinStock < deduction && !prod?.allowNegativeStock) {
+      if (!prod) continue;
+      const deduction = calculateItemStockDeduction(item, prod);
+      const curMagasinStock = prod.currentStock || 0;
+      if (curMagasinStock < deduction && !prod.allowNegativeStock) {
         return {
           success: false,
           movementsCount: 0,
-          message: `Stock Magasin insuffisant pour « ${item.productName || prod?.name} ». Disponible magasin : ${curMagasinStock} ${item.unit}, Requis : ${deduction} ${item.unit}.`
+          message: `Stock Magasin insuffisant pour « ${item.productName || prod.name} ». Disponible magasin : ${curMagasinStock} ${prod.baseUnit || item.unit}, Requis : ${deduction} ${prod.baseUnit || item.unit}.`
         };
       }
     }
@@ -4202,11 +4682,15 @@ class StoreManager {
 
         const oldPrestStock = prod.prestationStock !== undefined
           ? prod.prestationStock
-          : (workshopStore && prod.stockByStore?.[workshopStore.id] !== undefined ? prod.stockByStore[workshopStore.id] : (prod.stockByLocation?.['PRESTATION'] || 0));
+          : (workshopStore && prod.stockByStore?.[workshopStore.id] !== undefined 
+              ? prod.stockByStore[workshopStore.id] 
+              : (prod.stockByLocation?.['PRESTATION'] !== undefined 
+                  ? prod.stockByLocation['PRESTATION'] 
+                  : (prod.currentStock || 0)));
         
         const newPrestStock = Math.max(0, oldPrestStock - req.quantityRequired);
 
-        // Update Prestation Stock only - NEVER TOUCH prod.currentStock (Stock Magasin)!
+        // Update Prestation Stock only
         prod.prestationStock = newPrestStock;
         if (!prod.stockByLocation) prod.stockByLocation = {};
         prod.stockByLocation['PRESTATION'] = newPrestStock;
@@ -4250,7 +4734,7 @@ class StoreManager {
         const prod = draft.products.find(p => p.id === item.productId);
         if (!prod) continue;
 
-        const deduction = item.stockQuantityDeducted !== undefined ? item.stockQuantityDeducted : item.quantity;
+        const deduction = calculateItemStockDeduction(item, prod);
         const oldMagStock = prod.currentStock || 0;
         const newMagStock = Math.max(0, oldMagStock - deduction);
 
@@ -4274,16 +4758,16 @@ class StoreManager {
           quantity: -deduction,
           oldStock: oldMagStock,
           newStock: newMagStock,
-          unitUsed: item.unit,
+          unitUsed: prod.baseUnit || item.unit,
           unitCost: prod.costPrice || 0,
           totalCost: (prod.costPrice || 0) * deduction,
           storeId: posStore?.id,
           storeName: posStore?.name || 'Magasin / Boutique',
           sourceLocation: posStore?.name || 'Stock Magasin / Boutique',
-          destinationLocation: 'Client',
+          destinationLocation: order.personName ? `Client (${order.personName})` : 'Client',
           relatedOrderId: order.id,
           relatedOrderItemId: item.id,
-          reason: `Vente directe commande ${order.orderNumber} - ${item.productName || prod.name}`,
+          reason: `Vente ${order.orderSource === 'MARKETPLACE' ? 'Marketplace' : 'directe'} commande ${order.orderNumber} - ${item.productName || prod.name}`,
           performedByUserName: userName,
           createdAt: new Date().toISOString()
         });
@@ -4310,6 +4794,90 @@ class StoreManager {
       success: true,
       movementsCount: movementsCreated,
       message: `${movementsCreated} mouvement(s) de stock enregistré(s) avec succès pour la commande ${order.orderNumber}.`
+    };
+  }
+
+  public deliverCommercialOrder(
+    orderId: string,
+    requestingTenantId: string,
+    performedBy: { id?: string; name: string }
+  ): { success: boolean; message: string; order?: any } {
+    const order = (this.state.orders || []).find(o => o.id === orderId);
+    if (!order) {
+      return { success: false, message: "Commande introuvable." };
+    }
+
+    // Protection anti-double livraison (Idempotence)
+    if (order.status === 'DELIVERED' || order.deliveryStatus === 'DELIVERED') {
+      return { success: false, message: "Cette commande est déjà livrée." };
+    }
+
+    // Règle de paiement obligatoire : la commande doit être entièrement soldée
+    const dueAmount = order.dueAmount !== undefined ? order.dueAmount : Math.max(0, order.totalAmount - order.paidAmount);
+    if (order.paymentStatus !== 'PAID' && dueAmount > 0) {
+      return {
+        success: false,
+        message: "Cette commande ne peut pas être livrée car elle n'est pas entièrement payée."
+      };
+    }
+
+    const previousStatus = order.status;
+    const nowIso = new Date().toISOString();
+
+    // Déduction sécurisée du stock si non déjà déduit (idempotent)
+    if (!order.stockDeducted) {
+      this.deductConsumablesForOrder(order.id, order.tenantId || requestingTenantId, performedBy.name);
+    }
+
+    // Mise à jour transactionnelle du statut de la commande
+    this.updateState(draft => {
+      const ord = draft.orders.find(o => o.id === orderId);
+      if (ord) {
+        ord.status = 'DELIVERED';
+        ord.deliveryStatus = 'DELIVERED';
+        ord.deliveredAt = nowIso;
+        ord.deliveredByUserId = performedBy.id;
+        ord.deliveredByUserName = performedBy.name;
+        ord.deliveryNotes = `Commande finalisée et livrée avec succès par ${performedBy.name}`;
+        ord.updatedAt = nowIso;
+        if (ord.items) {
+          ord.items.forEach(it => {
+            if (it.productionStatus !== 'CANCELLED') {
+              it.productionStatus = 'DELIVERED';
+              it.deliveredAt = nowIso;
+              it.deliveredByUserName = performedBy.name;
+            }
+          });
+        }
+      }
+
+      // Notification client via le système existant
+      if (!draft.notifications) draft.notifications = [];
+      draft.notifications.unshift({
+        id: `notif-deliv-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        tenantId: order.tenantId || requestingTenantId,
+        userId: order.personId,
+        title: `Commande #${order.orderNumber} Livrée 🟢`,
+        message: `Votre commande #${order.orderNumber} a été validée et livrée. Merci de votre fidélité !`,
+        type: 'ORDER',
+        isRead: false,
+        createdAt: nowIso
+      } as any);
+    });
+
+    // Journal d'audit officiel
+    this.logAudit('ORDER_DELIVERED', 'ORDER', order.id, { status: previousStatus }, {
+      status: 'DELIVERED',
+      orderNumber: order.orderNumber,
+      deliveredAt: nowIso,
+      performedBy: performedBy.name
+    });
+
+    const updatedOrder = (this.state.orders || []).find(o => o.id === orderId);
+    return {
+      success: true,
+      message: `La commande #${order.orderNumber} est désormais validée et livrée.`,
+      order: updatedOrder
     };
   }
 
@@ -4510,6 +5078,12 @@ class StoreManager {
     const costP = Number(data.costPrice) || 0;
     const saleP = Number(data.salePrice) || 0;
 
+    const cleanedImages = Array.isArray(data.images)
+      ? data.images.filter(img => typeof img === 'string' && img.trim().length > 0).slice(0, 4)
+      : (data.imageUrl?.trim() ? [data.imageUrl.trim()] : []);
+
+    const primaryImage = cleanedImages.length > 0 ? cleanedImages[0] : (data.imageUrl?.trim() || undefined);
+
     const newProduct: Product = {
       id: newProductId,
       tenantId: requestingTenantId, // Strictly forced to the connected agency
@@ -4535,7 +5109,18 @@ class StoreManager {
       supplierName: data.supplierName || undefined,
       location: data.location?.trim() || 'Magasin Principal',
       stockByLocation: data.stockByLocation || { 'MAIN_STORE': initialQty },
-      imageUrl: data.imageUrl?.trim() || undefined,
+      imageUrl: primaryImage,
+      images: cleanedImages,
+      videoUrl: data.videoUrl?.trim() || undefined,
+      publicUnit: data.publicUnit || data.defaultSaleUnit || data.baseUnit || 'unité',
+      publicPrice: data.publicPrice !== undefined ? Number(data.publicPrice) : saleP,
+      conversionFactorToStockUnit: data.conversionFactorToStockUnit ? Number(data.conversionFactorToStockUnit) : 1,
+      publicationStatus: data.publicationStatus || 'DRAFT',
+      isMarketplacePublished: data.publicationStatus === 'PUBLISHED',
+      publishedAt: data.publicationStatus === 'PUBLISHED' ? (data.publishedAt || new Date().toISOString()) : undefined,
+      unpublishedAt: data.publicationStatus === 'UNPUBLISHED' ? (data.unpublishedAt || new Date().toISOString()) : undefined,
+      subcategory: data.subcategory?.trim() || undefined,
+      featuredBadge: data.featuredBadge || undefined,
       isActive: data.isActive !== undefined ? data.isActive : true,
       isArchived: false,
       createdAt: new Date().toISOString()
@@ -4610,7 +5195,28 @@ class StoreManager {
         if (data.categoryId !== undefined) p.categoryId = data.categoryId;
         if (data.category !== undefined) p.category = data.category;
         if ('description' in data) p.description = data.description?.trim() || '';
-        if ('imageUrl' in data) p.imageUrl = data.imageUrl?.trim() || undefined;
+        
+        if (data.images !== undefined) {
+          const validImgs = Array.isArray(data.images)
+            ? data.images.filter(img => typeof img === 'string' && img.trim().length > 0).slice(0, 4)
+            : [];
+          p.images = validImgs;
+          p.imageUrl = validImgs.length > 0 ? validImgs[0] : undefined;
+        } else if ('imageUrl' in data) {
+          p.imageUrl = data.imageUrl?.trim() || undefined;
+          if (p.imageUrl && (!p.images || p.images.length === 0)) {
+            p.images = [p.imageUrl];
+          }
+        }
+
+        if ('videoUrl' in data) p.videoUrl = data.videoUrl?.trim() || undefined;
+        if (data.publicUnit !== undefined) p.publicUnit = data.publicUnit;
+        if (data.publicPrice !== undefined) p.publicPrice = Number(data.publicPrice);
+        if (data.conversionFactorToStockUnit !== undefined) p.conversionFactorToStockUnit = Number(data.conversionFactorToStockUnit);
+        if (data.isMarketplacePublished !== undefined) p.isMarketplacePublished = data.isMarketplacePublished;
+        if (data.subcategory !== undefined) p.subcategory = data.subcategory?.trim() || undefined;
+        if (data.featuredBadge !== undefined) p.featuredBadge = data.featuredBadge;
+
         if (data.baseUnit !== undefined) {
           p.baseUnit = data.baseUnit;
           p.unit = data.baseUnit;
@@ -4654,6 +5260,132 @@ class StoreManager {
       statusCode: 200,
       product: updatedProduct,
       message: `L'article "${updatedProduct?.name}" a été mis à jour avec succès.`
+    };
+  }
+
+  public publishProduct(productId: string, requestingTenantId: string, isSuperAdmin?: boolean): { success: boolean; product?: Product; message: string; statusCode: number } {
+    const product = (this.state.products || []).find(p => p.id === productId);
+    if (!product || product.isArchived) {
+      return { success: false, statusCode: 404, message: "Produit introuvable." };
+    }
+
+    // 1. Authorization: check product belongs to requesting tenant (unless super admin)
+    if (!isSuperAdmin && requestingTenantId !== 'global' && product.tenantId !== requestingTenantId) {
+      this.logAudit('PRODUCT_CROSS_TENANT_PUBLISH_DENIED', 'PRODUCT', productId, null, {
+        productTenant: product.tenantId,
+        requestingTenant: requestingTenantId
+      });
+      return { success: false, statusCode: 403, message: "403 Accès Refusé : Vous ne pouvez pas publier un produit appartenant à une autre boutique." };
+    }
+
+    // 2. Tenant existence and validation check
+    const tenant = (this.state.tenants || []).find(t => t.id === product.tenantId);
+    if (!tenant) {
+      return { success: false, statusCode: 400, message: "Boutique introuvable pour ce produit." };
+    }
+
+    // Must be verified (verificationStatus === 'APPROUVE')
+    if (tenant.verificationStatus && tenant.verificationStatus !== 'APPROUVE') {
+      return {
+        success: false,
+        statusCode: 400,
+        message: "Votre boutique n'est pas encore validée par nos administrateurs. Vous ne pouvez pas publier ce produit pour le moment."
+      };
+    }
+
+    // Commercial status must be authorized (ESSAI_GRATUIT, ACTIVE, VALIDEE) and not suspended/expired/closed
+    const isCommercialValid = tenant.commercialStatus === 'ESSAI_GRATUIT' || tenant.commercialStatus === 'ACTIVE' || tenant.commercialStatus === 'VALIDEE' || (!tenant.commercialStatus && tenant.subscriptionStatus !== 'SUSPENDED' && tenant.subscriptionStatus !== 'EXPIRED');
+    const isNotBlocked = tenant.status !== 'SUSPENDED' && tenant.status !== 'EXPIRED' && tenant.status !== 'CLOSED' && tenant.subscriptionStatus !== 'SUSPENDED' && tenant.subscriptionStatus !== 'EXPIRED';
+
+    if (!isCommercialValid || !isNotBlocked || tenant.isActive === false) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: "Votre boutique est suspendue ou son abonnement/période d'essai a expiré. Publication impossible."
+      };
+    }
+
+    // 3. Product completeness validation
+    if (!product.name || !product.name.trim()) {
+      return { success: false, statusCode: 400, message: "Le produit doit avoir un nom valide." };
+    }
+
+    const price = product.publicPrice !== undefined ? product.publicPrice : product.salePrice;
+    if (!price || price <= 0) {
+      return { success: false, statusCode: 400, message: "Le produit doit avoir un prix de vente valide supérieur à 0 GNF." };
+    }
+
+    if (!product.category || !product.category.trim()) {
+      return { success: false, statusCode: 400, message: "Le produit doit être rattaché à une catégorie valide." };
+    }
+
+    const hasImages = (product.images && product.images.filter(img => typeof img === 'string' && img.trim().length > 0).length > 0) || Boolean(product.imageUrl && product.imageUrl.trim());
+    if (!hasImages) {
+      return { success: false, statusCode: 400, message: "Le produit doit comporter au moins une photo pour être publié sur le marketplace." };
+    }
+
+    // 4. Update status
+    const now = new Date().toISOString();
+    let publishedProd: Product | undefined;
+    this.updateState(draft => {
+      const p = draft.products.find(item => item.id === productId);
+      if (p) {
+        p.publicationStatus = 'PUBLISHED';
+        p.isMarketplacePublished = true;
+        p.publishedAt = now;
+        p.updatedAt = now;
+        publishedProd = { ...p };
+      }
+    });
+
+    this.logAudit('PRODUCT_PUBLISHED', 'PRODUCT', productId, null, {
+      name: product.name,
+      tenantId: product.tenantId,
+      publishedAt: now
+    });
+
+    return {
+      success: true,
+      statusCode: 200,
+      product: publishedProd,
+      message: `Le produit "${product.name}" est désormais publié et visible sur le marketplace !`
+    };
+  }
+
+  public unpublishProduct(productId: string, requestingTenantId: string, isSuperAdmin?: boolean): { success: boolean; product?: Product; message: string; statusCode: number } {
+    const product = (this.state.products || []).find(p => p.id === productId);
+    if (!product || product.isArchived) {
+      return { success: false, statusCode: 404, message: "Produit introuvable." };
+    }
+
+    if (!isSuperAdmin && requestingTenantId !== 'global' && product.tenantId !== requestingTenantId) {
+      return { success: false, statusCode: 403, message: "403 Accès Refusé : Vous ne pouvez pas dépublier un produit d'une autre boutique." };
+    }
+
+    const now = new Date().toISOString();
+    let unpublishedProd: Product | undefined;
+    this.updateState(draft => {
+      const p = draft.products.find(item => item.id === productId);
+      if (p) {
+        p.publicationStatus = 'UNPUBLISHED';
+        p.isMarketplacePublished = false;
+        p.unpublishedAt = now;
+        p.updatedAt = now;
+        unpublishedProd = { ...p };
+      }
+    });
+
+    this.logAudit('PRODUCT_UNPUBLISHED', 'PRODUCT', productId, null, {
+      name: product.name,
+      tenantId: product.tenantId,
+      unpublishedAt: now
+    });
+
+    return {
+      success: true,
+      statusCode: 200,
+      product: unpublishedProd,
+      message: `Le produit "${product.name}" a été retiré de la publication (dépublié).`
     };
   }
 
@@ -8364,15 +9096,16 @@ class StoreManager {
     });
 
     return {
+      ...(updatedUser || {}),
       success: true,
       statusCode: 200,
       message: "Vos informations personnelles ont été mises à jour avec succès.",
       user: updatedUser
-    };
+    } as any;
   }
 
   /**
-   * MISE À JOUR OU SUPPRESSION DE LA PHOTO DE PROFIL
+   * MISE À JOUR DE LA PHOTO DE PROFIL
    */
   public updateUserAvatar(
     userId: string,
@@ -8380,7 +9113,19 @@ class StoreManager {
     requestingUserOrId?: User | string,
     isSuperAdmin?: boolean
   ): { success: boolean; statusCode: number; message: string; user?: User } {
-    return this.updateUserProfile(userId, { avatarUrl: avatarUrl || null }, requestingUserOrId, isSuperAdmin);
+    const res = this.updateUserProfile(userId, { avatarUrl: avatarUrl || null }, requestingUserOrId, isSuperAdmin);
+    if (res.success) {
+      const actingUser = this.resolveActingUser(requestingUserOrId, isSuperAdmin);
+      const roleLabel = getFinancialUserRoleLabel(actingUser);
+      this.logAudit('USER_AVATAR_UPDATED', 'USER', userId, null, {
+        userId,
+        userRole: roleLabel,
+        performedBy: actingUser ? `${actingUser.firstName} ${actingUser.lastName}` : 'System',
+        tenantId: actingUser?.tenantId || 'global',
+        description: `${roleLabel} a mis à jour la photo de profil.`
+      });
+    }
+    return res;
   }
 
   /**
@@ -8391,7 +9136,19 @@ class StoreManager {
     requestingUserOrId?: User | string,
     isSuperAdmin?: boolean
   ): { success: boolean; statusCode: number; message: string; user?: User } {
-    return this.updateUserProfile(userId, { avatarUrl: null }, requestingUserOrId, isSuperAdmin);
+    const res = this.updateUserProfile(userId, { avatarUrl: null }, requestingUserOrId, isSuperAdmin);
+    if (res.success) {
+      const actingUser = this.resolveActingUser(requestingUserOrId, isSuperAdmin);
+      const roleLabel = getFinancialUserRoleLabel(actingUser);
+      this.logAudit('USER_AVATAR_REMOVED', 'USER', userId, null, {
+        userId,
+        userRole: roleLabel,
+        performedBy: actingUser ? `${actingUser.firstName} ${actingUser.lastName}` : 'System',
+        tenantId: actingUser?.tenantId || 'global',
+        description: `${roleLabel} a supprimé la photo de profil.`
+      });
+    }
+    return res;
   }
 
   /**
@@ -8426,8 +9183,8 @@ class StoreManager {
     }
 
     if (!isGlobalAdmin || isSelf) {
-      const currentHash = targetUser.passwordHash || `${targetUser.username || 'user'}123`;
-      if (oldPassword !== currentHash) {
+      const currentHash = targetUser.passwordHash || targetUser.password || `${targetUser.username || 'user'}123`;
+      if (oldPassword !== currentHash && !verifyPassword(oldPassword, currentHash)) {
         return { success: false, statusCode: 400, message: "L'ancien mot de passe saisi est incorrect." };
       }
     }
@@ -8440,10 +9197,24 @@ class StoreManager {
       return { success: false, statusCode: 400, message: "Le nouveau mot de passe doit être différent de l'ancien mot de passe." };
     }
 
+    // Role-specific password policy validation
+    const accountCategory = getAccountCategory(targetUser);
+    const pwdValidation = validatePasswordByPolicy(newPassword, accountCategory);
+    if (!pwdValidation.isValid) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: pwdValidation.errors.join(' ')
+      };
+    }
+
+    const hashedNewPassword = hashPassword(newPassword);
+
     this.updateState(draft => {
       const u = draft.users.find(userItem => userItem.id === userId);
       if (u) {
-        u.passwordHash = newPassword;
+        u.password = newPassword;
+        u.passwordHash = hashedNewPassword;
         u.resetPasswordCode = undefined;
         u.resetPasswordExpiresAt = undefined;
       }
@@ -8554,9 +9325,11 @@ class StoreManager {
       return { success: false, statusCode: 400, message: "Veuillez saisir votre identifiant ou adresse email." };
     }
 
-    // 2. Lookup user by email or username
+    // 2. Lookup user by email, username or phone number
     const user = this.state.users.find(
-      u => u.email.toLowerCase() === cleanId || (u.username && u.username.toLowerCase() === cleanId)
+      u => u.email.toLowerCase() === cleanId || 
+           (u.username && u.username.toLowerCase() === cleanId) ||
+           (u.phone && u.phone.replace(/\s+/g, '') === cleanId.replace(/\s+/g, ''))
     );
 
     if (!user) {
@@ -8611,8 +9384,8 @@ class StoreManager {
     }
 
     // 5. Password verification
-    const expectedPassword = user.passwordHash || `${user.username || 'user'}123`;
-    const isPasswordValid = password !== undefined && password === expectedPassword;
+    const expectedPassword = user.password || user.passwordHash || `${user.username || 'user'}123`;
+    const isPasswordValid = password !== undefined && (password === expectedPassword || password === user.password || password === user.passwordHash);
 
     if (!isPasswordValid) {
       recordFailedIpAttempt(cleanIp, now);
@@ -8821,19 +9594,38 @@ class StoreManager {
     });
   }
 
-  public addNotification(title: string, message: string, type: 'INFO' | 'SUCCESS' | 'WARNING' | 'DANGER' = 'INFO', link?: string) {
-    const notif: AppNotification = {
-      id: `notif-${Date.now()}`,
-      tenantId: this.state.currentTenantId,
-      title,
-      message,
-      type,
-      link,
+  public addNotification(
+    paramOrTitle: string | Omit<AppNotification, 'id' | 'createdAt' | 'isRead'>,
+    message?: string,
+    type: 'INFO' | 'SUCCESS' | 'WARNING' | 'DANGER' = 'INFO',
+    link?: string,
+    tenantId?: string,
+    userId?: string
+  ): AppNotification {
+    if (!this.state.notifications) this.state.notifications = [];
+    let notifObj: Omit<AppNotification, 'id' | 'createdAt' | 'isRead'>;
+    if (typeof paramOrTitle === 'object') {
+      notifObj = paramOrTitle;
+    } else {
+      notifObj = {
+        title: paramOrTitle,
+        message: message || '',
+        type: type || 'INFO',
+        link,
+        tenantId: tenantId || this.state.currentTenantId,
+        boutiqueId: tenantId || this.state.currentTenantId,
+        userId
+      };
+    }
+    const newNotif: AppNotification = {
+      ...notifObj,
+      id: `notif-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
       isRead: false,
       createdAt: new Date().toISOString()
     };
-    this.state.notifications.unshift(notif);
+    this.state.notifications.unshift(newNotif);
     this.saveState();
+    return newNotif;
   }
 
   public registerAutonomousAgency(data: AutonomousAgencyRegistrationData): {
@@ -10248,6 +11040,2097 @@ class StoreManager {
       password,
       currentUser
     );
+  }
+
+  // =========================================================================
+  // MARKETPLACE EXTENSIONS: CATEGORIES & MESSAGING
+  // =========================================================================
+
+  public updateBoutiqueCategories(boutiqueId: string, categories: string[]): { success: boolean; message: string; tenant?: Tenant } {
+    const tenant = this.state.tenants.find(t => t.id === boutiqueId);
+    if (!tenant) {
+      return { success: false, message: 'Boutique introuvable.' };
+    }
+
+    tenant.selectedCategories = Array.from(new Set(categories.filter(c => typeof c === 'string' && c.trim().length > 0)));
+    tenant.updatedAt = new Date().toISOString();
+    this.saveState();
+    return { success: true, message: 'Catégories de la boutique mises à jour avec succès.', tenant };
+  }
+
+  public getMarketplaceConversations(
+    boutiqueId?: string, 
+    customerId?: string,
+    options?: {
+      search?: string;
+      unreadOnly?: boolean;
+      orderId?: string;
+      productId?: string;
+      isSuperAdmin?: boolean;
+    }
+  ): MarketplaceConversation[] {
+    if (!this.state.marketplaceConversations) {
+      this.state.marketplaceConversations = [];
+    }
+    let list: MarketplaceConversation[] = [...this.state.marketplaceConversations];
+    if (boutiqueId && !options?.isSuperAdmin) {
+      list = list.filter(c => c.boutiqueId === boutiqueId);
+    }
+    if (customerId) {
+      list = list.filter(c => c.customerId === customerId);
+    }
+    if (options?.orderId) {
+      list = list.filter(c => c.orderId === options.orderId);
+    }
+    if (options?.productId) {
+      list = list.filter(c => c.productId === options.productId);
+    }
+    if (options?.unreadOnly) {
+      if (boutiqueId) {
+        list = list.filter(c => (c.unreadByBoutique || 0) > 0);
+      } else if (customerId) {
+        list = list.filter(c => (c.unreadByCustomer || 0) > 0);
+      }
+    }
+    if (options?.search && options.search.trim()) {
+      const q = options.search.toLowerCase().trim();
+      list = list.filter(c => 
+        (c.customerName && c.customerName.toLowerCase().includes(q)) ||
+        (c.boutiqueName && c.boutiqueName.toLowerCase().includes(q)) ||
+        (c.productName && c.productName.toLowerCase().includes(q)) ||
+        (c.orderCode && c.orderCode.toLowerCase().includes(q)) ||
+        (c.lastMessageContent && c.lastMessageContent.toLowerCase().includes(q))
+      );
+    }
+    return list.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+  }
+
+  public getMarketplaceConversationById(id: string): MarketplaceConversation | null {
+    if (!this.state.marketplaceConversations) this.state.marketplaceConversations = [];
+    if (!this.state.marketplaceMessages) this.state.marketplaceMessages = [];
+
+    const conv = this.state.marketplaceConversations.find(c => c.id === id);
+    if (!conv) return null;
+
+    const messages = this.state.marketplaceMessages.filter(m => m.conversationId === id);
+    return {
+      ...conv,
+      messages: messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    };
+  }
+
+  public findOrCreateMarketplaceConversation(params: {
+    customerId: string;
+    customerName: string;
+    customerPhone?: string;
+    boutiqueId: string;
+    boutiqueName?: string;
+    productId?: string;
+    publicationId?: string;
+    productName?: string;
+    productImageUrl?: string;
+    publicPrice?: number;
+    publicUnit?: string;
+    orderId?: string;
+    orderCode?: string;
+    orderTotal?: number;
+    serviceId?: string;
+    serviceName?: string;
+    initialMessage?: string;
+    senderRole?: string;
+  }): { success: boolean; conversation: MarketplaceConversation; isNew: boolean } {
+    if (!this.state.marketplaceConversations) this.state.marketplaceConversations = [];
+    if (!this.state.marketplaceMessages) this.state.marketplaceMessages = [];
+
+    const boutique = this.state.tenants.find(t => t.id === params.boutiqueId);
+    const storeName = boutique?.name || params.boutiqueName || 'Boutique Partenaire';
+
+    // Find existing conversation for this customer, boutique, and context (order, product, or general)
+    let existing = this.state.marketplaceConversations.find(c => {
+      if (c.customerId !== params.customerId || c.boutiqueId !== params.boutiqueId) return false;
+      if (params.orderId) return c.orderId === params.orderId;
+      if (params.productId || params.publicationId) {
+        const targetPid = params.productId || params.publicationId;
+        return c.productId === targetPid || c.publicationId === targetPid;
+      }
+      return !c.orderId && !c.productId;
+    });
+
+    const now = new Date().toISOString();
+
+    if (!existing) {
+      const newConv: MarketplaceConversation = {
+        id: `conv-mkt-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        customerId: params.customerId,
+        customerName: params.customerName || 'Client Marketplace',
+        customerPhone: params.customerPhone,
+        boutiqueId: params.boutiqueId,
+        boutiqueName: storeName,
+        productId: params.productId,
+        publicationId: params.publicationId || params.productId,
+        productName: params.productName || (params.orderCode ? `Commande ${params.orderCode}` : 'Discussion Boutique'),
+        productImageUrl: params.productImageUrl,
+        publicPrice: params.publicPrice,
+        publicUnit: params.publicUnit,
+        orderId: params.orderId,
+        orderCode: params.orderCode,
+        orderTotal: params.orderTotal,
+        serviceId: params.serviceId,
+        serviceName: params.serviceName,
+        lastMessageContent: params.initialMessage || 'Nouvelle conversation ouverte',
+        lastMessageAt: now,
+        lastSenderRole: params.senderRole || 'Client',
+        unreadByBoutique: params.initialMessage ? 1 : 0,
+        unreadByCustomer: 0,
+        status: 'OPEN',
+        createdAt: now,
+        updatedAt: now
+      };
+
+      this.state.marketplaceConversations.push(newConv);
+
+      if (params.initialMessage) {
+        const firstMsg: MarketplaceMessage = {
+          id: `msg-mkt-${Date.now()}-1`,
+          conversationId: newConv.id,
+          senderId: params.customerId,
+          senderType: 'CUSTOMER',
+          senderName: params.customerName || 'Client Marketplace',
+          senderRole: params.senderRole || 'Client',
+          content: params.initialMessage,
+          messageType: params.orderId ? 'ORDER_REF' : (params.productId ? 'PRODUCT_REF' : 'TEXT'),
+          isRead: false,
+          createdAt: now
+        };
+        this.state.marketplaceMessages.push(firstMsg);
+      }
+
+      this.saveState();
+      return { success: true, conversation: this.getMarketplaceConversationById(newConv.id)!, isNew: true };
+    }
+
+    if (params.initialMessage) {
+      this.sendMarketplaceMessage({
+        conversationId: existing.id,
+        senderId: params.customerId,
+        senderType: 'CUSTOMER',
+        senderName: params.customerName || 'Client Marketplace',
+        senderRole: params.senderRole || 'Client',
+        content: params.initialMessage,
+        messageType: params.orderId ? 'ORDER_REF' : (params.productId ? 'PRODUCT_REF' : 'TEXT')
+      });
+    }
+
+    return { success: true, conversation: this.getMarketplaceConversationById(existing.id)!, isNew: false };
+  }
+
+  public sendMarketplaceMessage(params: {
+    conversationId: string;
+    senderId: string;
+    senderType: 'CUSTOMER' | 'BOUTIQUE' | 'STAFF' | 'ADMIN';
+    senderName: string;
+    senderRole?: string;
+    content: string;
+    messageType?: 'TEXT' | 'IMAGE' | 'ORDER_REF' | 'PRODUCT_REF';
+    imageUrl?: string;
+  }): { success: boolean; message?: MarketplaceMessage; conversation?: MarketplaceConversation; error?: string } {
+    if (!this.state.marketplaceConversations) this.state.marketplaceConversations = [];
+    if (!this.state.marketplaceMessages) this.state.marketplaceMessages = [];
+
+    const conv = this.state.marketplaceConversations.find(c => c.id === params.conversationId);
+    if (!conv) {
+      return { success: false, error: 'Conversation introuvable.' };
+    }
+
+    const trimmedContent = params.content.trim();
+    if (!trimmedContent) {
+      return { success: false, error: 'Le contenu du message ne peut pas être vide.' };
+    }
+
+    const now = new Date().toISOString();
+    const newMsg: MarketplaceMessage = {
+      id: `msg-mkt-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      conversationId: conv.id,
+      senderId: params.senderId,
+      senderType: params.senderType,
+      senderName: params.senderName,
+      senderRole: params.senderRole || (params.senderType === 'CUSTOMER' ? 'Client' : 'Vendeur'),
+      content: trimmedContent,
+      messageType: params.messageType || 'TEXT',
+      imageUrl: params.imageUrl,
+      isRead: false,
+      createdAt: now
+    };
+
+    this.state.marketplaceMessages.push(newMsg);
+
+    conv.lastMessageContent = trimmedContent;
+    conv.lastMessageAt = now;
+    conv.lastSenderRole = newMsg.senderRole;
+    conv.updatedAt = now;
+
+    if (params.senderType === 'CUSTOMER') {
+      conv.unreadByBoutique = (conv.unreadByBoutique || 0) + 1;
+    } else {
+      conv.unreadByCustomer = (conv.unreadByCustomer || 0) + 1;
+    }
+
+    this.saveState();
+    return {
+      success: true,
+      message: newMsg,
+      conversation: this.getMarketplaceConversationById(conv.id)!
+    };
+  }
+
+  public markMarketplaceConversationAsRead(conversationId: string, readerType: 'BOUTIQUE' | 'CUSTOMER'): { success: boolean } {
+    if (!this.state.marketplaceConversations) this.state.marketplaceConversations = [];
+    if (!this.state.marketplaceMessages) this.state.marketplaceMessages = [];
+
+    const conv = this.state.marketplaceConversations.find(c => c.id === conversationId);
+    if (!conv) return { success: false };
+
+    if (readerType === 'BOUTIQUE') {
+      conv.unreadByBoutique = 0;
+      this.state.marketplaceMessages
+        .filter(m => m.conversationId === conversationId && m.senderType === 'CUSTOMER')
+        .forEach(m => { m.isRead = true; });
+    } else {
+      conv.unreadByCustomer = 0;
+      this.state.marketplaceMessages
+        .filter(m => m.conversationId === conversationId && (m.senderType === 'BOUTIQUE' || m.senderType === 'STAFF' || m.senderType === 'ADMIN'))
+        .forEach(m => { m.isRead = true; });
+    }
+
+    this.saveState();
+    return { success: true };
+  }
+
+  public getMarketplaceUnreadCount(boutiqueId?: string, customerId?: string): number {
+    if (!this.state.marketplaceConversations) return 0;
+    if (boutiqueId) {
+      return this.state.marketplaceConversations
+        .filter(c => c.boutiqueId === boutiqueId)
+        .reduce((sum: number, c: MarketplaceConversation) => sum + (c.unreadByBoutique || 0), 0);
+    }
+    if (customerId) {
+      return this.state.marketplaceConversations
+        .filter(c => c.customerId === customerId)
+        .reduce((sum: number, c: MarketplaceConversation) => sum + (c.unreadByCustomer || 0), 0);
+    }
+    return 0;
+  }
+
+  public getTenantNotifications(tenantId?: string, userId?: string, isSuperAdmin?: boolean): AppNotification[] {
+    if (!this.state.notifications) this.state.notifications = [];
+    if (isSuperAdmin && (!tenantId || tenantId === 'ALL' || tenantId === 'global')) {
+      return [...this.state.notifications];
+    }
+    return this.state.notifications.filter(n => {
+      const targetTenant = n.boutiqueId || n.tenantId;
+
+      // 1. If notification is specifically directed to this user (e.g., client or specific staff)
+      if (userId && n.userId === userId) {
+        return true;
+      }
+
+      // 2. For boutique / agency staff within a specific tenant/boutique
+      if (tenantId && tenantId !== 'ALL' && tenantId !== 'global') {
+        if (targetTenant && targetTenant !== tenantId) return false;
+        if (n.userId && userId && n.userId !== userId) return false;
+        return Boolean(targetTenant === tenantId);
+      }
+
+      // 3. Fallback to userId match
+      if (userId) {
+        return n.userId === userId;
+      }
+
+      return false;
+    });
+  }
+
+  public createMarketplaceOrders(params: {
+    items: MarketplaceCartItem[];
+    customerName: string;
+    customerPhone: string;
+    customerEmail?: string;
+    customerId?: string;
+    deliveryCity: string;
+    deliveryAddress: string;
+    orderNotes?: string;
+  }): { success: boolean; createdOrders: Order[]; error?: string } {
+    if (!params.items || params.items.length === 0) {
+      return { success: false, createdOrders: [], error: 'Le panier est vide.' };
+    }
+    if (!params.customerName.trim() || !params.customerPhone.trim() || !params.deliveryAddress.trim()) {
+      return { success: false, createdOrders: [], error: 'Veuillez renseigner le nom, téléphone et adresse de livraison.' };
+    }
+
+    if (!this.state.orders) this.state.orders = [];
+    if (!this.state.notifications) this.state.notifications = [];
+
+    // 1. Group items by storeId (the owning boutique's tenantId)
+    const storeMap = new Map<string, MarketplaceCartItem[]>();
+    for (const item of params.items) {
+      const sId = item.storeId || 't-001';
+      if (!storeMap.has(sId)) {
+        storeMap.set(sId, []);
+      }
+      storeMap.get(sId)!.push(item);
+    }
+
+    const createdOrders: Order[] = [];
+    const now = new Date().toISOString();
+
+    for (const [storeId, storeItems] of storeMap.entries()) {
+      const orderSeq = this.state.orders.length + createdOrders.length + 1;
+      const orderNumber = generateDocNumber('CMD-MP', orderSeq);
+
+      let subtotal = 0;
+      const orderItems: OrderItem[] = storeItems.map((item, idx) => {
+        const itemTotal = item.unitPrice * item.quantity;
+        subtotal += itemTotal;
+
+        const orderItem: OrderItem = {
+          id: `item-mp-${Date.now()}-${idx}-${Math.floor(100 + Math.random() * 900)}`,
+          itemType: 'PRODUCT',
+          productId: item.productId,
+          productName: item.productName,
+          productCode: item.productCode,
+          quantity: item.quantity,
+          requestedQuantity: item.quantity,
+          validatedQuantity: undefined,
+          unit: item.unit || 'Pièce',
+          publicUnit: item.unit || 'Pièce',
+          productImageUrl: item.imageUrl || (item.images && item.images.length > 0 ? item.images[0] : undefined),
+          unitPrice: item.unitPrice,
+          standardUnitPrice: item.unitPrice,
+          discountPercent: 0,
+          discountAmount: 0,
+          totalPrice: itemTotal,
+          productionStatus: 'PENDING',
+          storeId: storeId,
+          notes: params.orderNotes || undefined
+        };
+        return orderItem;
+      });
+
+      const newOrder: Order = {
+        id: `ord-mp-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        tenantId: storeId,
+        orderNumber: orderNumber,
+        orderSource: 'MARKETPLACE',
+        customerType: params.customerId ? 'REGISTERED' : 'WALK_IN',
+        personId: params.customerId || undefined,
+        personName: params.customerName.trim(),
+        personPhone: params.customerPhone.trim(),
+        personEmail: params.customerEmail ? params.customerEmail.trim() : undefined,
+        clientCity: params.deliveryCity,
+        deliveryAddress: params.deliveryAddress.trim(),
+        deliveryNotes: params.orderNotes ? params.orderNotes.trim() : undefined,
+        status: 'PENDING',
+        paymentStatus: 'UNPAID',
+        deliveryStatus: 'UNDELIVERED',
+        priority: 'NORMAL',
+        items: orderItems,
+        files: [],
+        subtotal: subtotal,
+        discountAmount: 0,
+        taxAmount: 0,
+        totalAmount: subtotal,
+        paidAmount: 0,
+        dueAmount: subtotal,
+        instructions: `Livraison à ${params.deliveryCity} (${params.deliveryAddress})${params.orderNotes ? ` - Note: ${params.orderNotes}` : ''}`,
+        isReadByMerchant: false,
+        trackingEvents: [
+          {
+            id: `track-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+            orderId: `ord-mp-${orderNumber}`,
+            status: 'ORDER_PLACED',
+            title: 'Commande émise',
+            description: `Commande passée avec succès auprès de la boutique (${params.deliveryCity}).`,
+            timestamp: now,
+            actorName: params.customerName.trim(),
+            actorRole: 'Client',
+            isCompleted: true
+          }
+        ],
+        createdAt: now,
+        updatedAt: now
+      };
+
+      this.state.orders.unshift(newOrder);
+      createdOrders.push(newOrder);
+
+      // 2. Generate scoped merchant notification
+      this.addNotification({
+        tenantId: storeId,
+        boutiqueId: storeId,
+        orderId: newOrder.id,
+        title: '🛒 Nouvelle commande Marketplace',
+        message: `Vous avez reçu la commande ${orderNumber} de ${params.customerName} (${params.deliveryCity}) pour un montant de ${formatCurrency(subtotal)}.`,
+        type: 'SUCCESS',
+        link: '/orders'
+      });
+
+      // 3. Log Audit
+      this.logAudit('MARKETPLACE_ORDER_CREATED', 'ORDER', newOrder.id, null, {
+        orderNumber,
+        storeId,
+        customerName: params.customerName,
+        customerPhone: params.customerPhone,
+        totalAmount: subtotal,
+        itemCount: orderItems.length
+      });
+    }
+
+    this.saveState();
+    return { success: true, createdOrders };
+  }
+
+  public markMarketplaceOrderAsRead(orderId: string): void {
+    if (!this.state.orders) return;
+    const ord = this.state.orders.find(o => o.id === orderId);
+    if (ord && ord.isReadByMerchant === false) {
+      ord.isReadByMerchant = true;
+      ord.updatedAt = new Date().toISOString();
+      this.saveState();
+    }
+  }
+
+  public validateMarketplaceOrder(params: {
+    orderId: string;
+    itemValidations: { itemId: string; validatedQuantity: number }[];
+    performedByName?: string;
+    notes?: string;
+  }): { success: boolean; order?: Order; movementsCount?: number; error?: string } {
+    if (!this.state.orders) return { success: false, error: 'Aucune commande enregistrée.' };
+    const order = this.state.orders.find(o => o.id === params.orderId);
+    if (!order) return { success: false, error: 'Commande introuvable.' };
+
+    if (!params.itemValidations || params.itemValidations.length === 0) {
+      return { success: false, error: 'Aucune validation spécifiée pour les articles.' };
+    }
+
+    // Step 1: Pre-validate stock availability for each product line
+    const products = this.state.products || [];
+    for (const val of params.itemValidations) {
+      const item = order.items.find(it => it.id === val.itemId);
+      if (!item) continue;
+      const validatedQty = Math.max(0, val.validatedQuantity);
+
+      if (item.productId && validatedQty > 0) {
+        const prod = products.find(p => p.id === item.productId);
+        if (!prod) {
+          return { success: false, error: `Produit introuvable pour la ligne « ${item.productName} »` };
+        }
+        const requiredStockUnits = calculateItemStockDeduction({ ...item, quantity: validatedQty }, prod);
+        const availableStock = prod.currentStock || 0;
+
+        if (requiredStockUnits > availableStock && !prod.allowNegativeStock) {
+          return {
+            success: false,
+            error: `Stock insuffisant pour « ${item.productName || prod.name} ». Stock réel disponible : ${availableStock} ${prod.baseUnit || 'unité'}, requis : ${requiredStockUnits} ${prod.baseUnit || 'unité'}.`
+          };
+        }
+      }
+    }
+
+    let movementsCount = 0;
+    const now = new Date().toISOString();
+
+    // Step 2: Perform atomic deduction and order update
+    this.updateState(draft => {
+      const targetOrder = draft.orders.find(o => o.id === params.orderId);
+      if (!targetOrder) return;
+      if (!draft.stockMovements) draft.stockMovements = [];
+
+      let newSubtotal = 0;
+
+      for (const val of params.itemValidations) {
+        const item = targetOrder.items.find(it => it.id === val.itemId);
+        if (!item) continue;
+
+        const valQty = Math.max(0, val.validatedQuantity);
+        if (item.requestedQuantity === undefined) {
+          item.requestedQuantity = item.quantity;
+        }
+        item.validatedQuantity = valQty;
+        item.quantity = valQty;
+        item.totalPrice = item.unitPrice * valQty;
+        newSubtotal += item.totalPrice;
+
+        if (item.productId && valQty > 0) {
+          const prod = draft.products.find(p => p.id === item.productId);
+          if (prod) {
+            const stockDeduction = calculateItemStockDeduction({ ...item, quantity: valQty }, prod);
+            const oldStock = prod.currentStock || 0;
+            const newStock = Math.max(0, oldStock - stockDeduction);
+
+            prod.currentStock = newStock;
+            if (!prod.stockByLocation) prod.stockByLocation = {};
+            prod.stockByLocation['MAIN_STORE'] = newStock;
+
+            const posStore = (draft.stores || []).find(s => s.tenantId === targetOrder.tenantId && (s.type === 'POINT_OF_SALE' || s.isDefault))
+              || (draft.stores || []).find(s => s.tenantId === targetOrder.tenantId);
+            if (posStore) {
+              if (!prod.stockByStore) prod.stockByStore = {};
+              prod.stockByStore[posStore.id] = Math.max(0, (prod.stockByStore[posStore.id] || 0) - stockDeduction);
+            }
+            prod.updatedAt = now;
+
+            // Traceable stock movement
+            draft.stockMovements.unshift({
+              id: `mov-val-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+              tenantId: targetOrder.tenantId,
+              productId: prod.id,
+              productName: prod.name,
+              movementType: 'BOUTIQUE_SALE',
+              quantity: -stockDeduction,
+              oldStock: oldStock,
+              newStock: newStock,
+              unitUsed: prod.baseUnit || item.unit,
+              unitCost: prod.costPrice || 0,
+              totalCost: (prod.costPrice || 0) * stockDeduction,
+              storeId: posStore?.id,
+              storeName: posStore?.name || 'Magasin / Boutique',
+              sourceLocation: posStore?.name || 'Stock Magasin / Boutique',
+              destinationLocation: `Client Marketplace (${targetOrder.personName})`,
+              relatedOrderId: targetOrder.id,
+              relatedOrderItemId: item.id,
+              reason: `Validation commande Marketplace ${targetOrder.orderNumber} : ${valQty} ${item.publicUnit || item.unit} validé(s) sur ${item.requestedQuantity} demandé(s)`,
+              performedByUserName: params.performedByName || 'Commerçant',
+              createdAt: now
+            });
+            movementsCount++;
+          }
+        }
+      }
+
+      targetOrder.subtotal = newSubtotal;
+      targetOrder.totalAmount = Math.max(0, newSubtotal - (targetOrder.discountAmount || 0) + (targetOrder.taxAmount || 0));
+      targetOrder.dueAmount = Math.max(0, targetOrder.totalAmount - (targetOrder.paidAmount || 0));
+      targetOrder.status = 'CONFIRMED';
+      targetOrder.stockDeducted = true;
+      targetOrder.consumablesDeducted = true;
+      targetOrder.updatedAt = now;
+
+      // Add tracking event
+      if (!targetOrder.trackingEvents) targetOrder.trackingEvents = [];
+      const hasPartial = targetOrder.items.some(it => it.requestedQuantity !== undefined && it.validatedQuantity !== undefined && it.validatedQuantity < it.requestedQuantity);
+
+      targetOrder.trackingEvents.push({
+        id: `track-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        orderId: targetOrder.id,
+        status: 'CONFIRMED',
+        title: hasPartial ? 'Commande partiellement confirmée' : 'Commande confirmée par la boutique',
+        description: hasPartial
+          ? `La boutique a confirmé la commande avec une quantité validée ajustée selon le stock disponible (Nouveau montant : ${formatCurrency(targetOrder.totalAmount)}).`
+          : `La boutique a validé la totalité de votre commande (${formatCurrency(targetOrder.totalAmount)}). Articles réservés et stock déduit.`,
+        timestamp: now,
+        actorName: params.performedByName || 'Commerçant',
+        actorRole: 'Boutique',
+        isCompleted: true
+      });
+
+      // Targeted notification for client
+      this.addNotification({
+        tenantId: targetOrder.tenantId,
+        userId: targetOrder.personId,
+        orderId: targetOrder.id,
+        title: hasPartial ? `Commande #${targetOrder.orderNumber} ajustée` : `Commande #${targetOrder.orderNumber} confirmée`,
+        message: hasPartial
+          ? `Votre commande #${targetOrder.orderNumber} a été validée avec une quantité ajustée selon le stock disponible. Montant net : ${formatCurrency(targetOrder.totalAmount)}.`
+          : `Bonne nouvelle ! Votre commande #${targetOrder.orderNumber} a été confirmée par la boutique (${formatCurrency(targetOrder.totalAmount)}).`,
+        type: 'SUCCESS',
+        link: '/orders'
+      });
+    });
+
+    const updatedOrder = (this.state.orders || []).find(o => o.id === params.orderId);
+    return { success: true, order: updatedOrder, movementsCount };
+  }
+
+  public updateOrderStatus(
+    orderId: string,
+    newStatus: OrderStatus,
+    performedByName?: string,
+    reason?: string
+  ): { success: boolean; order?: Order; error?: string } {
+    if (!this.state.orders) return { success: false, error: 'Aucune commande enregistrée.' };
+    const ord = this.state.orders.find(o => o.id === orderId);
+    if (!ord) return { success: false, error: 'Commande introuvable.' };
+
+    // ANOMALIE 3: Strict business rule - Unpaid or partially paid orders CANNOT be delivered
+    if (newStatus === 'DELIVERED' || newStatus === 'COMPLETED') {
+      if (ord.paymentStatus !== 'PAID' || (ord.dueAmount || 0) > 0) {
+        return {
+          success: false,
+          error: `Paiement requis avant livraison : la commande n'a pas été intégralement réglée (Solde restant : ${(ord.dueAmount || ord.totalAmount).toLocaleString('fr-FR')} GNF).`
+        };
+      }
+    }
+
+    const oldStatus = ord.status;
+    ord.status = newStatus;
+    const now = new Date().toISOString();
+    ord.updatedAt = now;
+
+    // Sync item production statuses if appropriate
+    if (newStatus === 'CONFIRMED') {
+      ord.items.forEach(item => {
+        if (item.productionStatus === 'PENDING') item.productionStatus = 'IN_PRODUCTION';
+      });
+    } else if (newStatus === 'READY') {
+      ord.items.forEach(item => {
+        if (item.productionStatus !== 'CANCELLED') item.productionStatus = 'READY';
+      });
+      ord.deliveryStatus = 'PARTIALLY_DELIVERED';
+    } else if (newStatus === 'DELIVERED' || newStatus === 'COMPLETED') {
+      ord.items.forEach(item => {
+        if (item.productionStatus !== 'CANCELLED') {
+          item.productionStatus = 'DELIVERED';
+          item.deliveredAt = now;
+          item.deliveredByUserName = performedByName || 'Boutique';
+        }
+      });
+      ord.deliveryStatus = 'DELIVERED';
+      ord.deliveredAt = now;
+      ord.deliveredByUserName = performedByName || 'Boutique';
+    } else if (newStatus === 'CANCELLED') {
+      ord.items.forEach(item => {
+        item.productionStatus = 'CANCELLED';
+        if (reason) item.notes = `${item.notes ? `${item.notes} - ` : ''}Refusé: ${reason}`;
+      });
+
+      // Restauration automatique du stock si déjà déduit
+      if (ord.stockDeducted || ord.consumablesDeducted) {
+        this.restoreConsumablesForOrder(ord.id, ord.tenantId, performedByName || 'Système', reason || 'Annulation de commande');
+      }
+    }
+
+    // Déduction automatique dès que la commande est traitée/confirmée par la boutique et stock non encore déduit
+    if ((newStatus === 'CONFIRMED' || newStatus === 'IN_PRODUCTION' || newStatus === 'READY' || newStatus === 'DELIVERED' || newStatus === 'COMPLETED') && !ord.stockDeducted) {
+      this.deductConsumablesForOrder(ord.id, ord.tenantId, performedByName || 'Boutique');
+    }
+
+    // ANOMALIE 4: Append tracking event
+    if (!ord.trackingEvents) ord.trackingEvents = [];
+    let eventTitle = '';
+    let eventDesc = '';
+    if (newStatus === 'CONFIRMED') {
+      eventTitle = 'Commande confirmée';
+      eventDesc = 'La commande a été acceptée par la boutique.';
+    } else if (newStatus === 'IN_PRODUCTION') {
+      eventTitle = 'Commande en préparation';
+      eventDesc = 'Les articles sont en cours de préparation en magasin.';
+    } else if (newStatus === 'READY') {
+      eventTitle = 'Commande prête / expédiée';
+      eventDesc = 'La commande est prête pour remise au livreur ou retrait client.';
+    } else if (newStatus === 'DELIVERED') {
+      eventTitle = 'Commande livrée';
+      eventDesc = 'La commande a été remise au client avec succès.';
+    } else if (newStatus === 'CANCELLED') {
+      eventTitle = 'Commande annulée';
+      eventDesc = reason ? `Commande annulée : ${reason}` : 'Commande annulée.';
+    }
+
+    if (eventTitle) {
+      ord.trackingEvents.push({
+        id: `track-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        orderId: ord.id,
+        status: newStatus,
+        title: eventTitle,
+        description: eventDesc,
+        timestamp: now,
+        actorName: performedByName || 'Boutique',
+        actorRole: 'Commerçant',
+        isCompleted: true
+      });
+
+      // Create scoped notification for the client
+      this.addNotification({
+        tenantId: ord.tenantId,
+        userId: ord.personId,
+        orderId: ord.id,
+        title: `Mise à jour Commande #${ord.orderNumber}`,
+        message: `${eventTitle} - ${eventDesc}`,
+        type: newStatus === 'CANCELLED' ? 'DANGER' : 'INFO',
+        link: '/orders'
+      });
+    }
+
+    this.logAudit('ORDER_STATUS_CHANGED', 'ORDER', ord.id, { oldStatus }, { newStatus, reason, performedByName });
+    this.saveState();
+    return { success: true, order: ord };
+  }
+
+  public recordOrderPayment(params: {
+    orderId: string;
+    amount: number;
+    paymentMethod?: string;
+    cashierName?: string;
+    notes?: string;
+  }): { success: boolean; order?: Order; movementsCount?: number; error?: string } {
+    if (!this.state.orders) return { success: false, error: 'Aucune commande enregistrée.' };
+    const ord = this.state.orders.find(o => o.id === params.orderId);
+    if (!ord) return { success: false, error: 'Commande introuvable.' };
+
+    if (params.amount <= 0) {
+      return { success: false, error: 'Le montant du paiement doit être supérieur à 0.' };
+    }
+
+    const now = new Date().toISOString();
+    ord.paidAmount = (ord.paidAmount || 0) + params.amount;
+    ord.dueAmount = Math.max(0, ord.totalAmount - ord.paidAmount);
+    ord.paymentStatus = ord.dueAmount === 0 ? 'PAID' : 'PARTIALLY_PAID';
+    if (ord.paymentStatus === 'PAID' && ord.status === 'PENDING') {
+      ord.status = 'CONFIRMED';
+    }
+    ord.updatedAt = now;
+
+    if (!ord.trackingEvents) ord.trackingEvents = [];
+    ord.trackingEvents.push({
+      id: `track-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      orderId: ord.id,
+      status: 'PAYMENT_RECEIVED',
+      title: ord.paymentStatus === 'PAID' ? 'Paiement intégral validé' : 'Paiement partiel enregistré',
+      description: `Montant encaissé : ${params.amount.toLocaleString('fr-FR')} GNF (Solde restant : ${ord.dueAmount.toLocaleString('fr-FR')} GNF).`,
+      timestamp: now,
+      actorName: params.cashierName || 'Caisse',
+      actorRole: 'Caissier / Admin',
+      isCompleted: true
+    });
+
+    // Create notification for client
+    this.addNotification({
+      tenantId: ord.tenantId,
+      userId: ord.personId,
+      orderId: ord.id,
+      title: `Paiement validé #${ord.orderNumber}`,
+      message: `Votre paiement de ${params.amount.toLocaleString('fr-FR')} GNF pour la commande #${ord.orderNumber} a été validé. Statut: ${ord.paymentStatus === 'PAID' ? 'PAYÉ (Soldé)' : 'PARTIEL'}.`,
+      type: 'SUCCESS',
+      link: '/orders'
+    });
+
+    this.logAudit('ORDER_PAYMENT_RECORDED', 'ORDER', ord.id, {}, { amount: params.amount, paymentStatus: ord.paymentStatus, cashierName: params.cashierName });
+    this.saveState();
+
+    let movementsCount = 0;
+    // Déduction automatique et dynamique du stock magasin si solde payé et non déjà déduit
+    if (ord.paymentStatus === 'PAID' && !ord.stockDeducted) {
+      const deductRes = this.deductConsumablesForOrder(ord.id, ord.tenantId, params.cashierName || 'Paiement / Caisse');
+      movementsCount = deductRes.movementsCount || 0;
+    }
+
+    const updatedOrder = (this.state.orders || []).find(o => o.id === params.orderId) || ord;
+    return { success: true, order: updatedOrder, movementsCount };
+  }
+
+  public getMarketplaceOrdersUnreadCount(tenantId?: string): number {
+    if (!this.state.orders) return 0;
+    return this.state.orders.filter(o => {
+      if (o.orderSource !== 'MARKETPLACE') return false;
+      if (tenantId && tenantId !== 'ALL' && tenantId !== 'global' && o.tenantId !== tenantId) return false;
+      return o.isReadByMerchant === false || o.status === 'PENDING';
+    }).length;
+  }
+
+  public getClientMarketplaceOrders(customerPhoneOrName?: string, customerId?: string): Order[] {
+    if (!this.state.orders) return [];
+    return this.state.orders.filter(o => {
+      if (o.orderSource !== 'MARKETPLACE') return false;
+      if (customerId && o.personId === customerId) return true;
+      if (customerPhoneOrName) {
+        const query = customerPhoneOrName.trim().toLowerCase();
+        if (o.personPhone && o.personPhone.includes(query)) return true;
+        if (o.personName && o.personName.toLowerCase().includes(query)) return true;
+      }
+      return false;
+    });
+  }
+
+  public registerMarketplaceCustomer(data: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string;
+    birthDate?: string;
+    avatarUrl?: string;
+    city?: string;
+    commune?: string;
+    district?: string;
+    address?: string;
+    password?: string;
+    preferences?: {
+      orderNotifications?: boolean;
+      promoOffers?: boolean;
+    };
+    failIfExists?: boolean;
+  }): { success: boolean; user?: User; message?: string } {
+    const cleanPhone = (data.phone || '').trim().replace(/\s+/g, '');
+    const cleanFirstName = (data.firstName || '').trim();
+    const cleanLastName = (data.lastName || '').trim();
+    const cleanEmail = (data.email || '').trim().toLowerCase();
+    const password = data.password || 'client123';
+
+    if (!cleanPhone || !cleanFirstName || !cleanLastName) {
+      return { success: false, message: 'Le prénom, le nom et le numéro de téléphone sont obligatoires.' };
+    }
+
+    if (!isValidPhoneNumber(cleanPhone, { allowEmpty: false, required: true })) {
+      return { success: false, message: 'Le numéro de téléphone fourni est invalide.' };
+    }
+
+    // Password policy validation for Marketplace Clients (min 6 chars + 1 uppercase)
+    if (password) {
+      const pwdValidation = validatePasswordByPolicy(password, 'MARKETPLACE_CLIENT');
+      if (!pwdValidation.isValid) {
+        return {
+          success: false,
+          message: pwdValidation.errors.join(' ')
+        };
+      }
+    }
+
+    if (!this.state.users) this.state.users = [];
+    if (!this.state.persons) this.state.persons = [];
+
+    // Check if user already exists
+    const existing = this.state.users.find(
+      u => (cleanPhone && u.phone && u.phone.replace(/\s+/g, '') === cleanPhone) ||
+           (cleanEmail && u.email && u.email.toLowerCase() === cleanEmail)
+    );
+
+    if (existing) {
+      return { 
+        success: false, 
+        message: 'Ce numéro de téléphone (ou adresse e-mail) est déjà associé à un compte client existant. Veuillez vous connecter.' 
+      };
+    }
+
+    const userId = `user-client-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    const personId = `pers-client-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    const hashedPassword = hashPassword(password);
+
+    const newUser: User = {
+      id: userId,
+      tenantId: 'global',
+      username: cleanPhone,
+      firstName: cleanFirstName,
+      lastName: cleanLastName,
+      birthDate: data.birthDate || undefined,
+      avatarUrl: data.avatarUrl || undefined,
+      email: cleanEmail || `${cleanPhone}@client.guineeboutiques.gn`,
+      phone: (data.phone || '').trim(),
+      city: data.city || 'Conakry',
+      commune: data.commune || undefined,
+      district: data.district || undefined,
+      address: data.address || undefined,
+      password: password,
+      passwordHash: hashedPassword,
+      roles: [{ id: 'role-client', name: 'Client Marketplace', code: 'CLIENT', permissions: ['marketplace.*', 'orders.read_own'] }],
+      permissions: ['marketplace.*', 'orders.read_own'],
+      preferences: data.preferences || { orderNotifications: true, promoOffers: false },
+      isActive: true,
+      failedLoginAttempts: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    const newPerson: Person = {
+      id: personId,
+      tenantId: 'global',
+      types: ['CUSTOMER'],
+      firstName: cleanFirstName,
+      lastName: cleanLastName,
+      phone: (data.phone || '').trim(),
+      email: cleanEmail || undefined,
+      city: data.city || 'Conakry',
+      commune: data.commune || undefined,
+      address: data.address || undefined,
+      origin: 'MARKETPLACE',
+      status: 'ACTIVE',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    this.state.users.push(newUser);
+    this.state.persons.push(newPerson);
+
+    this.logAudit('USER_REGISTERED', 'USER', userId, null, {
+      username: newUser.username,
+      role: 'CLIENT',
+      phone: cleanPhone
+    });
+
+    this.saveState();
+    return { success: true, user: newUser, message: 'Compte client créé avec succès !' };
+  }
+
+  // ==========================================
+  // SYSTÈME DE GESTION CENTRALISÉE DES CLIENTS ET RELATIONS MULTI-BOUTIQUES
+  // ==========================================
+
+  /**
+   * Recherche un client existant par numéro de téléphone ou email sur toute la plateforme
+   */
+  public findExistingCustomer(query: { phone?: string; email?: string } | string): {
+    found: boolean;
+    person?: Person;
+    user?: User;
+    matchType?: 'PHONE' | 'EMAIL';
+    linkedStores: Tenant[];
+    linkedRelations: ClientStoreRelation[];
+  } {
+    if (!this.state.persons) this.state.persons = [];
+    if (!this.state.users) this.state.users = [];
+    if (!this.state.clientStoreRelations) this.state.clientStoreRelations = [];
+
+    let cleanPhone = '';
+    let cleanEmail = '';
+
+    if (typeof query === 'string') {
+      const q = query.trim();
+      if (q.includes('@')) {
+        cleanEmail = q.toLowerCase();
+      } else {
+        cleanPhone = q.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
+      }
+    } else {
+      if (query.phone) cleanPhone = query.phone.trim().replace(/\s+/g, '').replace(/[^0-9+]/g, '');
+      if (query.email) cleanEmail = query.email.trim().toLowerCase();
+    }
+
+    // 1. Search in persons
+    let matchedPerson = this.state.persons.find(p => {
+      const pPhone = (p.phone || '').replace(/\s+/g, '').replace(/[^0-9+]/g, '');
+      const pEmail = (p.email || '').trim().toLowerCase();
+      if (cleanPhone && pPhone && (pPhone === cleanPhone || pPhone.endsWith(cleanPhone) || cleanPhone.endsWith(pPhone))) {
+        return true;
+      }
+      if (cleanEmail && pEmail && pEmail === cleanEmail) {
+        return true;
+      }
+      return false;
+    });
+
+    // 2. Search in users (Marketplace accounts)
+    let matchedUser = this.state.users.find(u => {
+      const uPhone = (u.phone || u.username || '').replace(/\s+/g, '').replace(/[^0-9+]/g, '');
+      const uEmail = (u.email || '').trim().toLowerCase();
+      if (cleanPhone && uPhone && (uPhone === cleanPhone || uPhone.endsWith(cleanPhone) || cleanPhone.endsWith(uPhone))) {
+        return true;
+      }
+      if (cleanEmail && uEmail && uEmail === cleanEmail) {
+        return true;
+      }
+      return false;
+    });
+
+    // If person not found but user exists, synthesize or locate matching person
+    if (!matchedPerson && matchedUser) {
+      matchedPerson = this.state.persons.find(p => p.phone === matchedUser?.phone || p.email === matchedUser?.email);
+      if (!matchedPerson) {
+        matchedPerson = {
+          id: `pers-${matchedUser.id}`,
+          tenantId: 'global',
+          firstName: matchedUser.firstName,
+          lastName: matchedUser.lastName,
+          phone: matchedUser.phone || matchedUser.username,
+          email: matchedUser.email,
+          types: ['CUSTOMER'],
+          origin: 'MARKETPLACE',
+          status: matchedUser.isActive ? 'ACTIVE' : 'SUSPENDED',
+          isActive: matchedUser.isActive,
+          createdAt: matchedUser.createdAt,
+          updatedAt: matchedUser.createdAt
+        };
+        this.state.persons.push(matchedPerson);
+        this.saveState();
+      }
+    }
+
+    if (!matchedPerson && !matchedUser) {
+      return { found: false, linkedStores: [], linkedRelations: [] };
+    }
+
+    const personId = matchedPerson?.id;
+    const userId = matchedUser?.id;
+
+    // Retrieve linked store relations
+    const relations = this.state.clientStoreRelations.filter(
+      r => (personId && r.personId === personId) || (userId && r.userId === userId)
+    );
+
+    const linkedStoreIds = new Set(relations.map(r => r.tenantId));
+    if (matchedPerson?.tenantId && matchedPerson.tenantId !== 'global') {
+      linkedStoreIds.add(matchedPerson.tenantId);
+    }
+    if (matchedPerson?.registeredByTenantId && matchedPerson.registeredByTenantId !== 'MARKETPLACE') {
+      linkedStoreIds.add(matchedPerson.registeredByTenantId);
+    }
+
+    const linkedStores = (this.state.tenants || []).filter(t => linkedStoreIds.has(t.id));
+
+    return {
+      found: true,
+      person: matchedPerson,
+      user: matchedUser,
+      matchType: cleanPhone ? 'PHONE' : 'EMAIL',
+      linkedStores,
+      linkedRelations: relations
+    };
+  }
+
+  /**
+   * Enregistre un client interne par une boutique (avec détection de doublon et liaison)
+   */
+  public registerStoreClient(data: {
+    tenantId: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string;
+    address?: string;
+    isLoyalCustomer?: boolean;
+    notes?: string;
+    companyName?: string;
+    isCompany?: boolean;
+    discountRate?: number;
+    creditLimit?: number;
+  }): {
+    success: boolean;
+    person?: Person;
+    relation?: ClientStoreRelation;
+    isExistingAssociated?: boolean;
+    message: string;
+  } {
+    const cleanFirstName = (data.firstName || '').trim();
+    const cleanLastName = (data.lastName || '').trim();
+    const cleanPhone = (data.phone || '').trim();
+    const cleanEmail = (data.email || '').trim().toLowerCase();
+
+    if (!cleanLastName || !cleanPhone) {
+      return { success: false, message: 'Le nom et le numéro de téléphone sont obligatoires.' };
+    }
+
+    if (!isValidPhoneNumber(cleanPhone, { allowEmpty: false, required: true })) {
+      return { success: false, message: 'Le numéro de téléphone fourni est invalide.' };
+    }
+
+    const tenant = (this.state.tenants || []).find(t => t.id === data.tenantId);
+    if (!tenant) {
+      return { success: false, message: 'Boutique introuvable.' };
+    }
+
+    if (!this.state.persons) this.state.persons = [];
+    if (!this.state.clientStoreRelations) this.state.clientStoreRelations = [];
+
+    // Check existing customer
+    const lookup = this.findExistingCustomer({ phone: cleanPhone, email: cleanEmail || undefined });
+
+    if (lookup.found && lookup.person) {
+      const existingPerson = lookup.person;
+      // Check if already linked to this tenant
+      const alreadyLinked = this.state.clientStoreRelations.some(
+        r => r.personId === existingPerson.id && r.tenantId === data.tenantId
+      );
+
+      if (alreadyLinked) {
+        return {
+          success: true,
+          person: existingPerson,
+          isExistingAssociated: true,
+          message: `Ce client est déjà enregistré auprès de votre boutique.`
+        };
+      }
+
+      // Associate existing person to this boutique
+      const relationId = `rel-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+      const newRelation: ClientStoreRelation = {
+        id: relationId,
+        personId: existingPerson.id,
+        userId: lookup.user?.id,
+        tenantId: data.tenantId,
+        tenantName: tenant.name,
+        registeredByTenantId: data.tenantId,
+        isLoyalCustomer: data.isLoyalCustomer ?? true,
+        notes: data.notes?.trim() || undefined,
+        totalOrdersCount: 0,
+        totalSpentAmount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      this.state.clientStoreRelations.push(newRelation);
+
+      this.logAudit('STORE_CLIENT_ASSOCIATED', 'PERSON', existingPerson.id, null, {
+        storeId: data.tenantId,
+        storeName: tenant.name,
+        personName: `${existingPerson.firstName} ${existingPerson.lastName}`,
+        phone: existingPerson.phone,
+        origin: existingPerson.origin || 'MARKETPLACE'
+      });
+
+      this.saveState();
+      return {
+        success: true,
+        person: existingPerson,
+        relation: newRelation,
+        isExistingAssociated: true,
+        message: `Le client existant ${existingPerson.firstName} ${existingPerson.lastName} a été associé avec succès à votre boutique.`
+      };
+    }
+
+    // Create new Person
+    const personId = `pers-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    const seq = this.state.persons.length + 1;
+    const customerNumber = `CLT-${new Date().getFullYear()}-${seq.toString().padStart(4, '0')}`;
+
+    const newPerson: Person = {
+      id: personId,
+      tenantId: data.tenantId,
+      firstName: cleanFirstName,
+      lastName: cleanLastName,
+      phone: cleanPhone,
+      email: cleanEmail || undefined,
+      address: data.address?.trim() || undefined,
+      notes: data.notes?.trim() || undefined,
+      types: ['CUSTOMER'],
+      origin: 'STORE_REGISTERED',
+      registeredByTenantId: data.tenantId,
+      registeredByTenantName: tenant.name,
+      status: 'ACTIVE',
+      isActive: true,
+      customerProfile: {
+        customerNumber,
+        isCompany: Boolean(data.isCompany || data.companyName),
+        companyName: data.companyName?.trim() || undefined,
+        discountRate: Number(data.discountRate) || 0,
+        creditLimit: Number(data.creditLimit) || 0
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const relationId = `rel-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    const newRelation: ClientStoreRelation = {
+      id: relationId,
+      personId: newPerson.id,
+      tenantId: data.tenantId,
+      tenantName: tenant.name,
+      registeredByTenantId: data.tenantId,
+      isLoyalCustomer: data.isLoyalCustomer ?? true,
+      notes: data.notes?.trim() || undefined,
+      totalOrdersCount: 0,
+      totalSpentAmount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    this.state.persons.push(newPerson);
+    this.state.clientStoreRelations.push(newRelation);
+
+    this.logAudit('STORE_CLIENT_CREATED', 'PERSON', personId, null, {
+      storeId: data.tenantId,
+      storeName: tenant.name,
+      personName: `${cleanFirstName} ${cleanLastName}`,
+      phone: cleanPhone,
+      customerNumber
+    });
+
+    this.saveState();
+    return {
+      success: true,
+      person: newPerson,
+      relation: newRelation,
+      isExistingAssociated: false,
+      message: `Client ${cleanFirstName} ${cleanLastName} enregistré avec succès dans votre boutique.`
+    };
+  }
+
+  /**
+   * Associe explicitement un client existant de la plateforme à une boutique
+   */
+  public associateExistingClientToStore(params: {
+    personId: string;
+    tenantId: string;
+    isLoyalCustomer?: boolean;
+    notes?: string;
+  }): { success: boolean; relation?: ClientStoreRelation; message: string } {
+    if (!this.state.persons) this.state.persons = [];
+    if (!this.state.clientStoreRelations) this.state.clientStoreRelations = [];
+
+    const person = this.state.persons.find(p => p.id === params.personId);
+    if (!person) {
+      return { success: false, message: 'Client introuvable.' };
+    }
+
+    const tenant = (this.state.tenants || []).find(t => t.id === params.tenantId);
+    if (!tenant) {
+      return { success: false, message: 'Boutique introuvable.' };
+    }
+
+    // Check if relation already exists
+    let relation = this.state.clientStoreRelations.find(
+      r => r.personId === params.personId && r.tenantId === params.tenantId
+    );
+
+    if (relation) {
+      relation.isLoyalCustomer = params.isLoyalCustomer ?? relation.isLoyalCustomer;
+      if (params.notes) relation.notes = params.notes;
+      relation.updatedAt = new Date().toISOString();
+      this.saveState();
+      return { success: true, relation, message: `La relation avec la boutique "${tenant.name}" a été mise à jour.` };
+    }
+
+    // Create relation
+    const relId = `rel-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    const newRelation: ClientStoreRelation = {
+      id: relId,
+      personId: person.id,
+      tenantId: params.tenantId,
+      tenantName: tenant.name,
+      registeredByTenantId: params.tenantId,
+      isLoyalCustomer: params.isLoyalCustomer ?? true,
+      notes: params.notes?.trim() || undefined,
+      totalOrdersCount: 0,
+      totalSpentAmount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    this.state.clientStoreRelations.push(newRelation);
+
+    this.logAudit('CLIENT_LINKED_TO_STORE', 'PERSON', person.id, null, {
+      storeId: params.tenantId,
+      storeName: tenant.name,
+      personName: `${person.firstName} ${person.lastName}`
+    });
+
+    this.saveState();
+    return {
+      success: true,
+      relation: newRelation,
+      message: `Client ${person.firstName} ${person.lastName} associé avec succès à la boutique "${tenant.name}".`
+    };
+  }
+
+  /**
+   * Récupère la liste des clients appartenant à une boutique donnée (Isolation stricte multi-boutique)
+   */
+  public getStoreClients(tenantId: string): Array<Person & { relation?: ClientStoreRelation; storeTotalOrders: number; storeTotalSpent: number }> {
+    if (!this.state.persons) this.state.persons = [];
+    if (!this.state.clientStoreRelations) this.state.clientStoreRelations = [];
+    if (!this.state.orders) this.state.orders = [];
+    if (!this.state.boutiqueSales) this.state.boutiqueSales = [];
+
+    // Find relations for this boutique
+    const storeRelations = this.state.clientStoreRelations.filter(r => r.tenantId === tenantId);
+    const relatedPersonIds = new Set(storeRelations.map(r => r.personId));
+
+    // Also include directly registered persons for this tenant
+    const matchedPersons = this.state.persons.filter(
+      p => relatedPersonIds.has(p.id) || p.tenantId === tenantId || p.registeredByTenantId === tenantId
+    );
+
+    return matchedPersons.map(p => {
+      const rel = storeRelations.find(r => r.personId === p.id);
+      
+      // Calculate orders and sales specific to this boutique
+      const storeOrders = this.state.orders.filter(
+        o => o.tenantId === tenantId && (o.personId === p.id || (p.phone && o.personPhone === p.phone))
+      );
+      const storeSales = this.state.boutiqueSales.filter(
+        s => s.tenantId === tenantId && (s.personId === p.id || (p.phone && s.personPhone === p.phone))
+      );
+
+      const storeOrdersTotal = storeOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+      const storeSalesTotal = storeSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+      const storeTotalOrders = storeOrders.length + storeSales.length;
+      const storeTotalSpent = storeOrdersTotal + storeSalesTotal;
+
+      return {
+        ...p,
+        relation: rel,
+        storeTotalOrders,
+        storeTotalSpent
+      };
+    });
+  }
+
+  /**
+   * Récupère la liste globale de tous les clients de la plateforme pour le Super Administrateur
+   */
+  public getAllPlatformClients(filter?: {
+    origin?: 'ALL' | 'MARKETPLACE' | 'STORE_REGISTERED';
+    multiStoreOnly?: boolean;
+    status?: 'ALL' | 'ACTIVE' | 'SUSPENDED';
+    search?: string;
+  }): Array<Person & {
+    linkedStoresCount: number;
+    linkedStores: Tenant[];
+    userAccount?: User;
+    totalOrdersCount: number;
+    totalSpentAmount: number;
+    lastOrderDate?: string;
+    lastLoginAt?: string;
+    lastActivityDate?: string;
+    conversationsCount: number;
+    clientTypeLabel: string;
+    principalAgencyLabel: string;
+    ordersList: Array<{
+      id: string;
+      date: string;
+      reference: string;
+      amount: number;
+      type: 'MARKETPLACE_ORDER' | 'BOUTIQUE_SALE';
+      storeName?: string;
+      status: string;
+    }>;
+  }> {
+    if (!this.state.persons) this.state.persons = [];
+    if (!this.state.users) this.state.users = [];
+    if (!this.state.clientStoreRelations) this.state.clientStoreRelations = [];
+    if (!this.state.tenants) this.state.tenants = [];
+    if (!this.state.orders) this.state.orders = [];
+    if (!this.state.boutiqueSales) this.state.boutiqueSales = [];
+    if (!this.state.marketplaceConversations) this.state.marketplaceConversations = [];
+
+    // Collect all CUSTOMER persons (filter out persons who are purely staff without customer role)
+    const customerPersons = this.state.persons.filter(
+      p => p.types.includes('CUSTOMER') || p.origin === 'MARKETPLACE' || p.origin === 'STORE_REGISTERED'
+    );
+
+    const personPhoneMap = new Set(customerPersons.map(p => (p.phone || '').replace(/\s+/g, '')));
+    const personEmailMap = new Set(customerPersons.filter(p => p.email).map(p => p.email!.trim().toLowerCase()));
+
+    // Ensure all client users have a corresponding person view
+    const clientUsers = this.state.users.filter(
+      u => u.roles?.some(r => r.code === 'CLIENT') || u.role === 'CLIENT'
+    );
+
+    const aggregated: Person[] = [...customerPersons];
+
+    for (const u of clientUsers) {
+      const uPhone = (u.phone || u.username || '').replace(/\s+/g, '');
+      const uEmail = (u.email || '').trim().toLowerCase();
+      const hasPhoneMatch = uPhone && personPhoneMap.has(uPhone);
+      const hasEmailMatch = uEmail && personEmailMap.has(uEmail);
+
+      if (!hasPhoneMatch && !hasEmailMatch) {
+        aggregated.push({
+          id: `pers-${u.id}`,
+          tenantId: 'global',
+          firstName: u.firstName,
+          lastName: u.lastName,
+          phone: u.phone || u.username,
+          email: u.email,
+          city: u.city || 'Conakry',
+          address: u.address,
+          types: ['CUSTOMER'],
+          origin: 'MARKETPLACE',
+          status: u.isActive ? 'ACTIVE' : 'SUSPENDED',
+          isActive: u.isActive,
+          createdAt: u.createdAt,
+          updatedAt: u.createdAt
+        });
+      }
+    }
+
+    const results = aggregated.map(p => {
+      const pPhone = (p.phone || '').replace(/\s+/g, '');
+      const pEmail = (p.email || '').toLowerCase();
+
+      // Find user account
+      const userAcc = this.state.users.find(
+        u => (pPhone && (u.phone?.replace(/\s+/g, '') === pPhone || u.username === pPhone)) ||
+             (pEmail && u.email?.toLowerCase() === pEmail)
+      );
+
+      // Find linked store relations
+      const rels = (this.state.clientStoreRelations || []).filter(
+        r => r.personId === p.id || (userAcc && r.userId === userAcc.id)
+      );
+
+      const storeIdSet = new Set(rels.map(r => r.tenantId));
+      if (p.tenantId && p.tenantId !== 'global') {
+        storeIdSet.add(p.tenantId);
+      }
+      if (p.registeredByTenantId && p.registeredByTenantId !== 'MARKETPLACE') {
+        storeIdSet.add(p.registeredByTenantId);
+      }
+
+      const linkedStores = this.state.tenants.filter(t => storeIdSet.has(t.id));
+
+      // Calculate total orders and spent amount
+      const orders = this.state.orders.filter(
+        o => o.personId === p.id || (pPhone && o.personPhone && o.personPhone.replace(/\s+/g, '') === pPhone)
+      );
+      const sales = this.state.boutiqueSales.filter(
+        s => s.personId === p.id || (pPhone && s.personPhone && s.personPhone.replace(/\s+/g, '') === pPhone)
+      );
+
+      const totalSpentAmount = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0) +
+                               sales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+      const totalOrdersCount = orders.length + sales.length;
+
+      // Find latest order date
+      let lastOrderDate: string | undefined;
+      const allDates = [
+        ...orders.map(o => o.createdAt),
+        ...sales.map(s => s.createdAt)
+      ].sort().reverse();
+      if (allDates.length > 0) {
+        lastOrderDate = allDates[0];
+      }
+
+      // Build detailed ordersList
+      const ordersList: Array<{
+        id: string;
+        date: string;
+        reference: string;
+        amount: number;
+        type: 'MARKETPLACE_ORDER' | 'BOUTIQUE_SALE';
+        storeName?: string;
+        status: string;
+      }> = [];
+
+      for (const o of orders) {
+        const t = this.state.tenants.find(tenant => tenant.id === o.tenantId);
+        ordersList.push({
+          id: o.id,
+          date: o.createdAt,
+          reference: o.orderNumber || o.id,
+          amount: o.totalAmount || 0,
+          type: 'MARKETPLACE_ORDER',
+          storeName: t?.name,
+          status: o.status
+        });
+      }
+
+      for (const s of sales) {
+        const t = this.state.tenants.find(tenant => tenant.id === s.tenantId);
+        ordersList.push({
+          id: s.id,
+          date: s.createdAt,
+          reference: s.saleNumber || s.id,
+          amount: s.totalAmount || 0,
+          type: 'BOUTIQUE_SALE',
+          storeName: t?.name,
+          status: s.paymentStatus || 'COMPLETED'
+        });
+      }
+
+      ordersList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      // Count conversations
+      const conversationsCount = (this.state.marketplaceConversations || []).filter(
+        c => (userAcc && (c.customerId === userAcc.id || c.customerId === p.id)) || 
+             (pPhone && c.customerPhone && c.customerPhone.replace(/\s+/g, '') === pPhone)
+      ).length;
+
+      const lastLoginAt = userAcc?.lastSuccessfulLoginAt || userAcc?.lastLoginAt;
+      const lastActivityDate = lastOrderDate || lastLoginAt || p.updatedAt || p.createdAt;
+
+      // Determine clientTypeLabel & principalAgencyLabel
+      const isMarketplace = p.origin === 'MARKETPLACE' || Boolean(userAcc && !p.registeredByTenantId);
+      let clientTypeLabel = 'CLIENT MARKETPLACE';
+      if (!isMarketplace && linkedStores.length <= 1) {
+        clientTypeLabel = 'CLIENT ENREGISTRÉ PAR UNE BOUTIQUE';
+      } else if (isMarketplace && linkedStores.length >= 1) {
+        clientTypeLabel = 'CLIENT MARKETPLACE + CLIENT D\'UNE OU PLUSIEURS BOUTIQUES';
+      } else if (linkedStores.length >= 2) {
+        clientTypeLabel = 'CLIENT MULTI-BOUTIQUES';
+      }
+
+      let principalAgencyLabel = 'Aucune';
+      if (!isMarketplace) {
+        principalAgencyLabel = p.registeredByTenantName || linkedStores[0]?.name || 'Non définie';
+      }
+
+      return {
+        ...p,
+        origin: isMarketplace ? ('MARKETPLACE' as const) : ('STORE_REGISTERED' as const),
+        linkedStoresCount: linkedStores.length,
+        linkedStores,
+        userAccount: userAcc,
+        totalOrdersCount,
+        totalSpentAmount,
+        lastOrderDate,
+        lastLoginAt,
+        lastActivityDate,
+        conversationsCount,
+        clientTypeLabel,
+        principalAgencyLabel,
+        ordersList
+      };
+    });
+
+    // Apply filtering
+    return results.filter(item => {
+      // Search
+      if (filter?.search) {
+        const query = filter.search.trim().toLowerCase();
+        const fullName = `${item.firstName} ${item.lastName}`.toLowerCase();
+        const phone = (item.phone || '').toLowerCase();
+        const email = (item.email || '').toLowerCase();
+        const city = (item.city || '').toLowerCase();
+        if (!fullName.includes(query) && !phone.includes(query) && !email.includes(query) && !city.includes(query)) {
+          return false;
+        }
+      }
+
+      // Origin filter
+      if (filter?.origin && filter.origin !== 'ALL') {
+        if (item.origin !== filter.origin) return false;
+      }
+
+      // Status filter
+      if (filter?.status && filter.status !== 'ALL') {
+        const itemStatus = item.status || (item.isActive ? 'ACTIVE' : 'SUSPENDED');
+        if (itemStatus !== filter.status) return false;
+      }
+
+      // Multi-store filter
+      if (filter?.multiStoreOnly) {
+        if (item.linkedStoresCount < 2) return false;
+      }
+
+      return true;
+    });
+  }
+
+  /**
+   * Suspend ou réactive un client sur la plateforme
+   */
+  public toggleClientSuspension(
+    personIdOrUserId: string,
+    reason?: string
+  ): { success: boolean; status?: 'ACTIVE' | 'SUSPENDED'; message: string } {
+    if (!this.state.persons) this.state.persons = [];
+    if (!this.state.users) this.state.users = [];
+
+    const person = this.state.persons.find(p => p.id === personIdOrUserId || p.id === `pers-${personIdOrUserId}`);
+    const user = this.state.users.find(u => u.id === personIdOrUserId || (person && (u.phone === person.phone || u.email === person.email)));
+
+    if (!person && !user) {
+      return { success: false, message: 'Client introuvable.' };
+    }
+
+    const currentStatus = person?.status || (user?.isActive ? 'ACTIVE' : 'SUSPENDED');
+    const newStatus: 'ACTIVE' | 'SUSPENDED' = currentStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    const isActive = newStatus === 'ACTIVE';
+
+    this.updateState(draft => {
+      if (person) {
+        const targetP = draft.persons.find(p => p.id === person.id);
+        if (targetP) {
+          targetP.status = newStatus;
+          targetP.isActive = isActive;
+          targetP.updatedAt = new Date().toISOString();
+        }
+      }
+      if (user) {
+        const targetU = draft.users.find(u => u.id === user.id);
+        if (targetU) {
+          targetU.isActive = isActive;
+        }
+      }
+    });
+
+    this.logAudit('CLIENT_STATUS_TOGGLED', 'PERSON', person?.id || user?.id, { oldStatus: currentStatus }, {
+      newStatus,
+      reason: reason || 'Action Super Administrateur'
+    });
+
+    return {
+      success: true,
+      status: newStatus,
+      message: newStatus === 'SUSPENDED' ? 'Le compte client a été suspendu.' : 'Le compte client a été réactivé avec succès.'
+    };
+  }
+
+  // ==========================================
+  // SYSTÈME DE VÉRIFICATION ET D'AUTHENTIFICATION DES BOUTIQUES
+  // ==========================================
+
+  public detectPotentialDuplicateStore(params: {
+    name?: string;
+    phone?: string;
+    responsibleName?: string;
+    excludeStoreId?: string;
+  }): { isDuplicate: boolean; matches: string[]; message?: string } {
+    const matches: string[] = [];
+    if (!this.state.tenants) return { isDuplicate: false, matches: [] };
+
+    const cleanName = (params.name || '').trim().toLowerCase();
+    const cleanPhone = (params.phone || '').trim().replace(/[\s\-\+\(\)]/g, '');
+    const cleanResp = (params.responsibleName || '').trim().toLowerCase();
+
+    for (const t of this.state.tenants) {
+      if (params.excludeStoreId && t.id === params.excludeStoreId) continue;
+
+      const tName = (t.name || '').trim().toLowerCase();
+      const tPhone = (t.phone || '').trim().replace(/[\s\-\+\(\)]/g, '');
+      const tResp = (t.responsibleName || '').trim().toLowerCase();
+
+      if (cleanPhone && tPhone && (cleanPhone === tPhone || (cleanPhone.length >= 8 && (tPhone.endsWith(cleanPhone) || cleanPhone.endsWith(tPhone))))) {
+        matches.push(`Numéro de téléphone (${params.phone}) déjà utilisé par "${t.name}"`);
+      }
+      if (cleanName && (tName === cleanName || (cleanName.length > 4 && (tName.includes(cleanName) || cleanName.includes(tName))))) {
+        matches.push(`Nom de boutique identique ou très similaire à "${t.name}"`);
+      }
+      if (cleanResp && tResp && cleanResp.length > 4 && cleanResp === tResp) {
+        matches.push(`Responsable (${params.responsibleName}) déjà associé à "${t.name}"`);
+      }
+    }
+
+    const isDuplicate = matches.length > 0;
+    return {
+      isDuplicate,
+      matches,
+      message: isDuplicate ? `Boutique potentiellement similaire détectée : ${matches.join(' ; ')}.` : undefined
+    };
+  }
+
+  public submitStoreVerificationRequest(data: {
+    storeName: string;
+    description?: string;
+    logoUrl?: string;
+    coverUrl?: string;
+    activityType?: ActivityType;
+    businessType?: 'PRODUCTS' | 'SERVICES' | 'PRODUCTS_AND_SERVICES';
+    primaryCategory: string;
+    selectedCategories?: string[];
+    city: string;
+    commune?: string;
+    neighborhood: string;
+    address: string;
+    landmark?: string;
+    phone: string;
+    isPhoneVerified: boolean;
+    // Responsible info
+    responsibleFirstName: string;
+    responsibleLastName: string;
+    responsiblePhone: string;
+    responsibleEmail?: string;
+    responsibleRole?: 'Propriétaire' | 'Gérant' | 'Responsable' | 'Autre';
+    ownerUserId: string;
+    // Commercial info
+    isRegisteredBusiness?: boolean;
+    registrationType?: 'RCCM' | 'NIF' | 'AGREMENT' | 'AUTRE';
+    registrationNumber?: string;
+    commercialDocUrl?: string;
+  }): { success: boolean; tenant?: Tenant; verification?: StoreVerification; message: string; warning?: string } {
+    if (!this.state.tenants) this.state.tenants = [];
+    if (!this.state.storeVerifications) this.state.storeVerifications = [];
+
+    const rawFirstName = data.responsibleFirstName || (data as any).responsibleName?.split(' ')[0] || 'Responsable';
+    const rawLastName = data.responsibleLastName !== undefined ? data.responsibleLastName : ((data as any).responsibleName?.split(' ').slice(1).join(' ') || '');
+    const fullRespName = ((data as any).responsibleName || `${rawFirstName} ${rawLastName}`).trim();
+    const storePhone = (data.phone || (data as any).responsiblePhone || '').trim();
+
+    // Check anti-duplicate
+    const dupCheck = this.detectPotentialDuplicateStore({
+      name: data.storeName,
+      phone: storePhone,
+      responsibleName: fullRespName
+    });
+
+    const tenantId = `t-store-${Date.now()}`;
+    const slug = data.storeName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `boutique-${Date.now()}`;
+    const now = new Date().toISOString();
+
+    const newTenant: Tenant = {
+      id: tenantId,
+      name: data.storeName.trim(),
+      code: `BTQ-${Math.floor(100 + Math.random() * 900)}`,
+      slug: slug,
+      activityType: data.activityType || 'RETAIL_STORE',
+      status: 'ACTIVE',
+      responsibleName: fullRespName,
+      responsibleRole: data.responsibleRole || 'Propriétaire',
+      ownerUserId: data.ownerUserId || 'u-client-01',
+      phone: storePhone,
+      email: data.responsibleEmail?.trim() || `${slug}@guineeboutiques.gn`,
+      city: data.city,
+      commune: data.commune,
+      neighborhood: data.neighborhood,
+      landmark: data.landmark,
+      address: data.commune ? `${data.commune} - ${data.address}` : data.address,
+      logoUrl: data.logoUrl || 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=150&auto=format&fit=crop&q=80',
+      coverUrl: data.coverUrl,
+      currency: 'GNF',
+      taxRate: 0,
+      isActive: true,
+      isOnline: false, // Not public yet!
+      businessType: data.businessType || 'PRODUCTS',
+      primaryCategory: data.primaryCategory,
+      selectedCategories: data.selectedCategories || [data.primaryCategory],
+      isPhoneVerified: data.isPhoneVerified,
+      isVerifiedStore: false,
+      verificationStatus: 'EN_ATTENTE',
+      commercialStatus: 'EN_ATTENTE_VALIDATION',
+      isRegisteredBusiness: data.isRegisteredBusiness,
+      registrationType: data.registrationType,
+      registrationNumber: data.registrationNumber,
+      commercialDocUrl: data.commercialDocUrl,
+      subscriptionStatus: 'TRIAL',
+      trialDaysTotal: 10,
+      trialStartedAt: now,
+      trialEndsAt: now, // starts on approval
+      settings: {
+        companyHeader: `${data.storeName.toUpperCase()} - Boutique Partenaire Agréée`,
+        invoiceFooter: "Merci pour votre confiance. Produits et services garantis.",
+        branding: {
+          logoUrl: data.logoUrl || 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=150&auto=format&fit=crop&q=80',
+          logoPosition: 'center',
+          logoSize: 'md',
+          showLogo: true,
+          slogan: data.description || "Commerce vérifié en République de Guinée",
+          headerAlignment: 'center',
+          showPhone: true,
+          showEmail: true,
+          showAddress: true,
+          showWebsite: false,
+          footerAlignment: 'center',
+          showFooter: true
+        }
+      },
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const verificationRecord: StoreVerification = {
+      id: `sv-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      storeId: tenantId,
+      storeName: newTenant.name,
+      submittedBy: data.ownerUserId,
+      submittedByName: newTenant.responsibleName || 'Responsable',
+      submittedByPhone: data.phone,
+      submittedByEmail: data.responsibleEmail,
+      status: 'EN_ATTENTE',
+      commercialStatus: 'EN_ATTENTE_VALIDATION',
+      hasPotentialDuplicate: dupCheck.isDuplicate,
+      duplicateWarningMessage: dupCheck.message,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    this.state.tenants.push(newTenant);
+    this.state.storeVerifications.unshift(verificationRecord);
+
+    // Create default branch and cash register
+    if (!this.state.branches) this.state.branches = [];
+    this.state.branches.push({
+      id: `b-${Date.now()}`,
+      tenantId: tenantId,
+      name: `Boutique Principale - ${newTenant.name}`,
+      code: `AG-${newTenant.code}`,
+      phone: newTenant.phone,
+      email: newTenant.email,
+      address: newTenant.address,
+      isMain: true,
+      isActive: true
+    });
+
+    if (!this.state.cashRegisters) this.state.cashRegisters = [];
+    this.state.cashRegisters.push({
+      id: `cr-${Date.now()}`,
+      tenantId: tenantId,
+      name: `Caisse 01 - ${newTenant.name}`,
+      code: `CAISSE-01`,
+      isActive: true
+    });
+
+    // Notify user
+    this.addNotification({
+      tenantId: tenantId,
+      userId: data.ownerUserId,
+      title: 'Demande de création de boutique envoyée',
+      message: 'Votre demande de création de boutique a été reçue et sera examinée par notre équipe.',
+      type: 'INFO',
+      link: '/boutique'
+    });
+
+    // Notify Admins
+    this.addNotification({
+      tenantId: 't-001',
+      title: 'Nouvelle demande de vérification de boutique',
+      message: `La boutique "${newTenant.name}" (${newTenant.phone}) attend votre validation.`,
+      type: 'WARNING',
+      link: '/saas-superadmin'
+    });
+
+    this.logAudit('STORE_VERIFICATION_SUBMITTED', 'TENANT', tenantId, null, {
+      storeName: newTenant.name,
+      phone: newTenant.phone,
+      isDuplicateWarning: dupCheck.isDuplicate
+    });
+
+    this.saveState();
+    return {
+      success: true,
+      tenant: newTenant,
+      verification: verificationRecord,
+      message: 'Votre demande de création de boutique a été reçue et sera examinée par notre équipe.',
+      warning: dupCheck.message
+    };
+  }
+
+  public approveStoreVerification(verificationId: string, reviewedByUserId: string, reviewedByUserName: string): { success: boolean; tenant?: Tenant; message: string } {
+    if (!this.state.storeVerifications) return { success: false, message: 'Dossier introuvable.' };
+    const verif = this.state.storeVerifications.find(v => v.id === verificationId || v.storeId === verificationId);
+    if (!verif) return { success: false, message: 'Dossier de vérification introuvable.' };
+
+    const tenant = this.state.tenants.find(t => t.id === verif.storeId);
+    if (!tenant) return { success: false, message: 'Boutique introuvable.' };
+
+    const now = new Date();
+    const trialEnds = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000); // 10 jours gratuits
+
+    verif.status = 'APPROUVE';
+    verif.commercialStatus = 'ESSAI_GRATUIT';
+    verif.reviewedBy = reviewedByUserId;
+    verif.reviewedByName = reviewedByUserName;
+    verif.reviewedAt = now.toISOString();
+    verif.updatedAt = now.toISOString();
+
+    tenant.verificationStatus = 'APPROUVE';
+    tenant.commercialStatus = 'ESSAI_GRATUIT';
+    tenant.subscriptionStatus = 'TRIAL';
+    tenant.isVerifiedStore = true;
+    tenant.isActive = true;
+    tenant.isOnline = true;
+    tenant.trialStartedAt = now.toISOString();
+    tenant.trialEndsAt = trialEnds.toISOString();
+    tenant.trialDaysTotal = 10;
+    tenant.updatedAt = now.toISOString();
+
+    // Notify merchant
+    this.addNotification({
+      tenantId: tenant.id,
+      userId: verif.submittedBy,
+      title: 'Boutique Vérifiée avec Succès !',
+      message: 'Félicitations, votre boutique a été vérifiée. Votre période d\'essai gratuit de 10 jours commence aujourd\'hui.',
+      type: 'SUCCESS',
+      link: '/boutique'
+    });
+
+    this.logAudit('STORE_VERIFICATION_APPROVED', 'TENANT', tenant.id, null, {
+      storeName: tenant.name,
+      reviewedBy: reviewedByUserName,
+      trialEndsAt: tenant.trialEndsAt
+    });
+
+    this.saveState();
+    return {
+      success: true,
+      tenant,
+      message: `La boutique "${tenant.name}" a été approuvée avec succès. La période d'essai de 10 jours a commencé.`
+    };
+  }
+
+  public requestStoreInformation(verificationId: string, requestedInfo: string, reviewedByUserId: string, reviewedByUserName: string): { success: boolean; message: string } {
+    if (!requestedInfo || !requestedInfo.trim()) {
+      return { success: false, message: 'Le motif de la demande d\'informations est obligatoire.' };
+    }
+    if (!this.state.storeVerifications) return { success: false, message: 'Dossier introuvable.' };
+    const verif = this.state.storeVerifications.find(v => v.id === verificationId || v.storeId === verificationId);
+    if (!verif) return { success: false, message: 'Dossier de vérification introuvable.' };
+
+    const tenant = this.state.tenants.find(t => t.id === verif.storeId);
+    if (!tenant) return { success: false, message: 'Boutique introuvable.' };
+
+    const now = new Date().toISOString();
+    verif.status = 'INFORMATIONS_DEMANDEES';
+    verif.requestedInformation = requestedInfo.trim();
+    verif.reviewedBy = reviewedByUserId;
+    verif.reviewedByName = reviewedByUserName;
+    verif.reviewedAt = now;
+    verif.updatedAt = now;
+
+    tenant.verificationStatus = 'INFORMATIONS_DEMANDEES';
+    tenant.commercialStatus = 'EN_ATTENTE_VALIDATION';
+    tenant.requestedInformation = requestedInfo.trim();
+    tenant.isOnline = false; // Remains private
+    tenant.updatedAt = now;
+
+    // Notify merchant
+    this.addNotification({
+      tenantId: tenant.id,
+      userId: verif.submittedBy,
+      title: 'Informations complémentaires demandées',
+      message: `L'équipe de validation a besoin d'informations supplémentaires : ${requestedInfo.trim()}`,
+      type: 'WARNING',
+      link: '/boutique'
+    });
+
+    this.logAudit('STORE_INFO_REQUESTED', 'TENANT', tenant.id, null, {
+      storeName: tenant.name,
+      requestedInfo: requestedInfo.trim(),
+      reviewedBy: reviewedByUserName
+    });
+
+    this.saveState();
+    return {
+      success: true,
+      message: `Demande d'informations transmise au responsable de la boutique "${tenant.name}".`
+    };
+  }
+
+  public rejectStoreVerification(
+    verificationId: string,
+    reason: string,
+    publicNote?: string,
+    internalNotes?: string,
+    reviewedByUserId?: string,
+    reviewedByUserName?: string
+  ): { success: boolean; message: string } {
+    if (!reason || !reason.trim()) {
+      return { success: false, message: 'Le motif du refus est obligatoire.' };
+    }
+    if (!this.state.storeVerifications) return { success: false, message: 'Dossier introuvable.' };
+    const verif = this.state.storeVerifications.find(v => v.id === verificationId || v.storeId === verificationId);
+    if (!verif) return { success: false, message: 'Dossier de vérification introuvable.' };
+
+    const tenant = this.state.tenants.find(t => t.id === verif.storeId);
+    if (!tenant) return { success: false, message: 'Boutique introuvable.' };
+
+    const now = new Date().toISOString();
+    verif.status = 'REFUSE';
+    verif.rejectionReason = reason;
+    verif.rejectionNote = publicNote?.trim() || undefined;
+    verif.internalAdminNotes = internalNotes?.trim() || undefined;
+    verif.reviewedBy = reviewedByUserId;
+    verif.reviewedByName = reviewedByUserName;
+    verif.reviewedAt = now;
+    verif.updatedAt = now;
+
+    tenant.verificationStatus = 'REFUSE';
+    tenant.commercialStatus = 'EN_ATTENTE_VALIDATION';
+    tenant.rejectionReason = reason;
+    tenant.rejectionNote = publicNote?.trim() || undefined;
+    tenant.isOnline = false; // Remains private
+    tenant.updatedAt = now;
+
+    // Notify merchant
+    this.addNotification({
+      tenantId: tenant.id,
+      userId: verif.submittedBy,
+      title: 'Demande de boutique refusée',
+      message: `Votre demande a été refusée pour le motif suivant : ${reason}${publicNote ? ` (${publicNote})` : ''}.`,
+      type: 'DANGER',
+      link: '/boutique'
+    });
+
+    this.logAudit('STORE_VERIFICATION_REJECTED', 'TENANT', tenant.id, null, {
+      storeName: tenant.name,
+      reason,
+      publicNote,
+      reviewedBy: reviewedByUserName
+    });
+
+    this.saveState();
+    return {
+      success: true,
+      message: `La boutique "${tenant.name}" a été refusée (Motif: ${reason}).`
+    };
+  }
+
+  public resubmitStoreVerification(storeId: string, updatedData?: Partial<Tenant>): { success: boolean; message: string } {
+    if (!this.state.storeVerifications) return { success: false, message: 'Dossier introuvable.' };
+    const verif = this.state.storeVerifications.find(v => v.storeId === storeId);
+    const tenant = this.state.tenants.find(t => t.id === storeId);
+    if (!tenant) return { success: false, message: 'Boutique introuvable.' };
+
+    const now = new Date().toISOString();
+    if (updatedData) {
+      Object.assign(tenant, updatedData);
+    }
+    tenant.verificationStatus = 'EN_ATTENTE';
+    tenant.commercialStatus = 'EN_ATTENTE_VALIDATION';
+    tenant.isOnline = false;
+    tenant.updatedAt = now;
+
+    if (verif) {
+      verif.status = 'EN_ATTENTE';
+      verif.commercialStatus = 'EN_ATTENTE_VALIDATION';
+      verif.updatedAt = now;
+    } else {
+      this.state.storeVerifications.unshift({
+        id: `sv-${Date.now()}`,
+        storeId: tenant.id,
+        storeName: tenant.name,
+        submittedBy: tenant.ownerUserId || 'u-admin-01',
+        submittedByName: tenant.responsibleName || 'Responsable',
+        submittedByPhone: tenant.phone || '',
+        submittedByEmail: tenant.email,
+        status: 'EN_ATTENTE',
+        commercialStatus: 'EN_ATTENTE_VALIDATION',
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+
+    // Notify admins
+    this.addNotification({
+      tenantId: 't-001',
+      title: 'Dossier de boutique réexaminé',
+      message: `La boutique "${tenant.name}" a mis à jour ses informations et sollicite une nouvelle vérification.`,
+      type: 'INFO',
+      link: '/saas-superadmin'
+    });
+
+    this.logAudit('STORE_VERIFICATION_RESUBMITTED', 'TENANT', tenant.id, null, {
+      storeName: tenant.name
+    });
+
+    this.saveState();
+    return {
+      success: true,
+      message: 'Votre dossier a été renvoyé pour vérification auprès de nos administrateurs.'
+    };
+  }
+
+  public getStoreVerifications(filterStatus?: string): StoreVerification[] {
+    if (!this.state.storeVerifications) return [];
+    if (!filterStatus || filterStatus === 'ALL') return this.state.storeVerifications;
+    return this.state.storeVerifications.filter(v => v.status === filterStatus);
+  }
+
+  public getStoreVerificationById(id: string): StoreVerification | undefined {
+    return this.state.storeVerifications?.find(v => v.id === id);
+  }
+
+  public getStoreVerificationByStoreId(storeId: string): StoreVerification | undefined {
+    return this.state.storeVerifications?.find(v => v.storeId === storeId);
+  }
+
+  public getPublicStores(): Tenant[] {
+    if (!this.state.tenants) return [];
+    return this.state.tenants.filter(t => {
+      // Must be approved
+      const isApproved = t.verificationStatus === 'APPROUVE' || (!t.verificationStatus && t.isActive);
+      // Commercial status must be active or free trial
+      const isCommercialActive = t.commercialStatus === 'ESSAI_GRATUIT' || t.commercialStatus === 'ACTIVE' || t.commercialStatus === 'VALIDEE' || (!t.commercialStatus && t.subscriptionStatus !== 'SUSPENDED' && t.subscriptionStatus !== 'EXPIRED');
+      const isNotBlocked = t.status !== 'SUSPENDED' && t.status !== 'EXPIRED' && t.status !== 'CLOSED' && t.subscriptionStatus !== 'SUSPENDED' && t.subscriptionStatus !== 'EXPIRED';
+      return isApproved && isCommercialActive && isNotBlocked && t.isActive !== false;
+    });
+  }
+
+  public getPublicProducts(): Product[] {
+    const publicStores = this.getPublicStores();
+    const publicStoreIds = new Set(publicStores.map(s => s.id));
+    if (!this.state.products) return [];
+    return this.state.products.filter(p => {
+      if (p.isActive === false || p.isArchived) return false;
+      const isPublished = p.publicationStatus === 'PUBLISHED' || (p.publicationStatus === undefined && p.isMarketplacePublished !== false);
+      return publicStoreIds.has(p.tenantId) && isPublished;
+    });
   }
 
   public resetToDefault(): void {
